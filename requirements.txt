@@ -1,0 +1,25 @@
+# Blofin Bot Dependencies
+
+# Core
+blofin
+python-dotenv
+requests
+
+# AI
+anthropic
+
+# Config
+pyyaml
+
+# Dashboard
+rich
+textual
+
+# Async (for WebSocket)
+websockets
+asyncio
+
+# Development
+pytest
+pytest-cov
+pytest-asyncio

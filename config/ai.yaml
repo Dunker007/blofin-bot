@@ -1,0 +1,25 @@
+# AI Configuration
+
+# Model Provider
+provider: claude
+model: claude-sonnet-4-20250514
+
+# Confidence Thresholds
+confidence_thresholds:
+  minimum_to_suggest: 0.6    # Below this, AI stays quiet
+  minimum_to_execute: 0.75   # Below this, requires approval even in autonomous
+  high_confidence: 0.85      # AI is very sure
+
+# Response Settings
+max_tokens: 1024
+temperature: 0.7
+
+# Analysis Settings
+analysis:
+  include_technical: true
+  include_orderbook: true
+  include_funding: true
+  timeframes:
+    - 1H
+    - 4H
+    - 1D

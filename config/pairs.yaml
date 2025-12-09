@@ -1,0 +1,25 @@
+# Trading Pairs Configuration
+
+pairs:
+  - symbol: BTC-USDT
+    enabled: true
+    max_leverage: 10
+    default_size: 0.001
+    min_order_size: 0.001
+    
+  - symbol: ETH-USDT
+    enabled: true
+    max_leverage: 10
+    default_size: 0.01
+    min_order_size: 0.001
+    
+  - symbol: SOL-USDT
+    enabled: true
+    max_leverage: 10
+    default_size: 0.1
+    min_order_size: 0.01
+
+# Default settings for new pairs
+defaults:
+  max_leverage: 10
+  margin_mode: cross

@@ -1,0 +1,30 @@
+# Autonomy Level Configuration
+# Controls how much the AI can do without human approval
+
+autonomy_level: copilot  # none | assistant | copilot | autonomous | agent
+
+# Level Descriptions:
+# - none: Manual mode - bot executes your commands only
+# - assistant: AI analyzes and explains, you decide everything  
+# - copilot: AI suggests trades, you approve before execution
+# - autonomous: AI trades within your rules, notifies you
+# - agent: Full AI control with capital allocation
+
+# Execution Rules (apply to all levels)
+execution_rules:
+  max_positions: 3
+  max_exposure_percent: 30
+  max_single_position_percent: 10
+  require_stop_loss: true
+  max_leverage: 10
+  
+  # Time-based rules (optional)
+  # no_trading_hours: ["00:00-02:00"]
+  funding_window_pause: 5  # Minutes before/after funding to pause
+
+# Session Limits (apply to autonomous/agent modes)
+session_limits:
+  max_trades_per_day: 10
+  max_loss_percent_daily: 5
+  max_loss_streak: 3
+  mandatory_review_after: 5  # Human must review after N trades
