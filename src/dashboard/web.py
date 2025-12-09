@@ -313,6 +313,15 @@ def create_api(engine: TradingEngine) -> FastAPI:
             # Build context from current state
             context_parts = []
             
+            # Add account balance context
+            try:
+                balance = engine.account.get_balance()
+                context_parts.append(f"Account: ${balance.total_equity:,.2f} equity, ${balance.available_balance:,.2f} available")
+                if balance.unrealized_pnl != 0:
+                    context_parts.append(f"Unrealized P&L: ${balance.unrealized_pnl:+,.2f}")
+            except:
+                context_parts.append("Account: Unable to fetch balance")
+            
             # Add position context
             try:
                 positions = engine.positions.get_position_summary()
@@ -829,10 +838,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </style>
 </head>
 <body>
+    <!-- Live Price Ticker -->
+    <div id="price-ticker" style="background:var(--bg-tertiary);padding:0.5rem 1rem;display:flex;justify-content:center;gap:2rem;font-size:0.85rem;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="color:var(--text-secondary);">BTC</span>
+            <span id="ticker-btc" style="font-weight:bold;">--</span>
+            <span id="ticker-btc-pct" class="positive">--%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="color:var(--text-secondary);">ETH</span>
+            <span id="ticker-eth" style="font-weight:bold;">--</span>
+            <span id="ticker-eth-pct" class="positive">--%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="color:var(--text-secondary);">SOL</span>
+            <span id="ticker-sol" style="font-weight:bold;">--</span>
+            <span id="ticker-sol-pct" class="positive">--%</span>
+        </div>
+    </div>
+    
     <header>
-        <div class="logo">🤖 Blofin Bot</div>
-        <div>
-            <span class="status-badge status-demo" id="mode-badge">DEMO</span>
+        <div class="logo">🤖 Blofin Helper</div>
+        <div style="display:flex;align-items:center;gap:1rem;">
+            <span id="last-update" style="font-size:0.75rem;color:var(--text-secondary);"></span>
+            <span class="status-badge" id="mode-badge">LIVE</span>
         </div>
     </header>
     
@@ -1121,12 +1150,79 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         <!-- Quick Actions Tab -->
         <div id="tab-actions" class="tab-content" style="display:none;">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">⚡ Quick Actions</span>
-                    <span style="color:var(--text-secondary);font-size:0.75rem;">One-click preset trades</span>
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚡ Quick Trade - BTC</span>
+                        <span id="quick-btc-price" style="font-weight:bold;">$--</span>
+                    </div>
+                    <div class="grid grid-2" style="gap:0.5rem;margin-top:1rem;">
+                        <button class="btn btn-success" onclick="quickTrade('BTC-USDT', 'long', 0.001)" style="padding:1rem;">
+                            🟢 LONG 0.001 BTC
+                        </button>
+                        <button class="btn btn-danger" onclick="quickTrade('BTC-USDT', 'short', 0.001)" style="padding:1rem;">
+                            🔴 SHORT 0.001 BTC
+                        </button>
+                        <button class="btn btn-success" onclick="quickTrade('BTC-USDT', 'long', 0.01)" style="padding:1rem;">
+                            🟢 LONG 0.01 BTC
+                        </button>
+                        <button class="btn btn-danger" onclick="quickTrade('BTC-USDT', 'short', 0.01)" style="padding:1rem;">
+                            🔴 SHORT 0.01 BTC
+                        </button>
+                    </div>
                 </div>
-                <div id="actions-grid" class="grid grid-4" style="margin-top:1rem;"></div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚡ Quick Trade - ETH</span>
+                        <span id="quick-eth-price" style="font-weight:bold;">$--</span>
+                    </div>
+                    <div class="grid grid-2" style="gap:0.5rem;margin-top:1rem;">
+                        <button class="btn btn-success" onclick="quickTrade('ETH-USDT', 'long', 0.01)" style="padding:1rem;">
+                            🟢 LONG 0.01 ETH
+                        </button>
+                        <button class="btn btn-danger" onclick="quickTrade('ETH-USDT', 'short', 0.01)" style="padding:1rem;">
+                            🔴 SHORT 0.01 ETH
+                        </button>
+                        <button class="btn btn-success" onclick="quickTrade('ETH-USDT', 'long', 0.1)" style="padding:1rem;">
+                            🟢 LONG 0.1 ETH
+                        </button>
+                        <button class="btn btn-danger" onclick="quickTrade('ETH-USDT', 'short', 0.1)" style="padding:1rem;">
+                            🔴 SHORT 0.1 ETH
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Custom Quick Trade -->
+            <div class="card" style="margin-top:1rem;">
+                <div class="card-header">
+                    <span class="card-title">🎯 Custom Quick Trade</span>
+                </div>
+                <div class="grid grid-5" style="gap:0.5rem;margin-top:1rem;">
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Symbol</label>
+                        <input type="text" id="quick-symbol" value="BTC-USDT" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Side</label>
+                        <select id="quick-side" class="input-sm" style="width:100%;">
+                            <option value="long">Long</option>
+                            <option value="short">Short</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Size</label>
+                        <input type="number" id="quick-size" value="0.01" step="0.001" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Leverage</label>
+                        <input type="number" id="quick-leverage" value="3" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                        <button class="btn btn-primary" onclick="executeCustomTrade()" style="width:100%;">⚡ Execute</button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -1353,13 +1449,102 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         </tr>
                     `).join('');
                 }
+                
+                // Update mode badge
+                const modeBadge = document.getElementById('mode-badge');
+                if (status.autonomy_level === 'copilot') {
+                    modeBadge.textContent = 'LIVE - Copilot';
+                    modeBadge.className = 'status-badge status-active';
+                } else {
+                    modeBadge.textContent = status.autonomy_level.toUpperCase();
+                }
+                
+                // Update timestamp
+                document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+                
             } catch (e) {
                 console.error('Refresh failed:', e);
             }
         }
         
+        // Live ticker
+        async function updateTicker() {
+            try {
+                const tickers = await fetchApi('/tickers?symbols=BTC-USDT,ETH-USDT,SOL-USDT');
+                for (const t of tickers) {
+                    const sym = t.symbol.split('-')[0].toLowerCase();
+                    const priceEl = document.getElementById('ticker-' + sym);
+                    const pctEl = document.getElementById('ticker-' + sym + '-pct');
+                    if (priceEl) {
+                        priceEl.textContent = '$' + parseFloat(t.last).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        pctEl.textContent = (t.change_24h >= 0 ? '+' : '') + t.change_24h.toFixed(2) + '%';
+                        pctEl.className = t.change_24h >= 0 ? 'positive' : 'negative';
+                    }
+                }
+            } catch (e) {
+                console.log('Ticker update failed');
+            }
+        }
+        
         async function refreshPositions() {
             await refreshData();
+        }
+        
+        // Quick Trade Execution
+        async function quickTrade(symbol, side, size) {
+            if (!confirm(`Execute ${side.toUpperCase()} ${size} ${symbol}?`)) {
+                return;
+            }
+            
+            try {
+                const result = await postApi('/trade', {
+                    symbol: symbol,
+                    side: side,
+                    size: size
+                });
+                
+                if (result.success) {
+                    alert('✅ Order placed!\\nOrder ID: ' + result.order_id);
+                    refreshData();
+                } else {
+                    alert('❌ Trade failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('❌ Error executing trade');
+            }
+        }
+        
+        async function executeCustomTrade() {
+            const symbol = document.getElementById('quick-symbol').value;
+            const side = document.getElementById('quick-side').value;
+            const size = parseFloat(document.getElementById('quick-size').value);
+            const leverage = parseInt(document.getElementById('quick-leverage').value);
+            
+            if (!symbol || !size) {
+                alert('Please enter symbol and size');
+                return;
+            }
+            
+            if (!confirm(`Execute ${side.toUpperCase()} ${size} ${symbol} @ ${leverage}x?`)) {
+                return;
+            }
+            
+            try {
+                const result = await postApi('/trade', {
+                    symbol: symbol,
+                    side: side,
+                    size: size
+                });
+                
+                if (result.success) {
+                    alert('✅ Order placed!\\nOrder ID: ' + result.order_id);
+                    refreshData();
+                } else {
+                    alert('❌ Trade failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('❌ Error executing trade');
+            }
         }
         
         // Position Size Calculator
@@ -2040,6 +2225,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     sendChatMessage();
                 }
             });
+            
+            // Start auto-refresh
+            refreshData();
+            updateTicker();
+            setInterval(refreshData, 5000);  // Every 5 seconds
+            setInterval(updateTicker, 10000); // Every 10 seconds
         });
     </script>
     
