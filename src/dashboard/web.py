@@ -674,6 +674,142 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .chat-collapsed {
             max-height: 50px;
         }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.25rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-card);
+        }
+        
+        .tab.active {
+            color: var(--text-primary);
+            background: var(--bg-card);
+        }
+        
+        .tab-content {
+            margin-top: 1rem;
+        }
+        
+        .tab-content:not(.active) {
+            display: none;
+        }
+        
+        /* Small inputs */
+        .input-sm {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+        
+        .input-sm:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+        }
+        
+        /* Watchlist item */
+        .watchlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .watchlist-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .watchlist-symbol {
+            font-weight: 600;
+        }
+        
+        .watchlist-price {
+            font-size: 1.125rem;
+        }
+        
+        /* Scanner item */
+        .scanner-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        /* Plan item */
+        .plan-item {
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .plan-item .plan-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Style card */
+        .style-card {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .style-card:hover {
+            border-color: var(--accent);
+        }
+        
+        .style-card.active {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .style-emoji {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .style-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .style-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -718,34 +854,154 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
         </div>
         
-        <div class="grid grid-2" style="margin-top: 1rem;">
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">Open Positions</span>
+        <!-- Tab Navigation -->
+        <div class="tabs" style="margin-top: 1rem;">
+            <button class="tab active" onclick="showTab('positions')">📊 Positions</button>
+            <button class="tab" onclick="showTab('watchlist')">⭐ Watchlist</button>
+            <button class="tab" onclick="showTab('scanner')">🔍 Scanner</button>
+            <button class="tab" onclick="showTab('planner')">📝 Planner</button>
+            <button class="tab" onclick="showTab('styles')">🎭 Styles</button>
+        </div>
+        
+        <!-- Positions Tab -->
+        <div id="tab-positions" class="tab-content active">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Open Positions</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Size</th>
+                                <th>P&L</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-table">
+                            <tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">No positions</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Symbol</th>
-                            <th>Side</th>
-                            <th>Size</th>
-                            <th>P&L</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="positions-table">
-                        <tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">No positions</td></tr>
-                    </tbody>
-                </table>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Pending Approvals</span>
+                    </div>
+                    <div id="approvals-list">
+                        <p style="color:var(--text-secondary)">No pending approvals</p>
+                    </div>
+                </div>
             </div>
-            
+        </div>
+        
+        <!-- Watchlist Tab -->
+        <div id="tab-watchlist" class="tab-content" style="display:none;">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⭐ My Watchlist</span>
+                        <div style="display:flex;gap:0.5rem;">
+                            <input type="text" id="watchlist-add" placeholder="BTC-USDT" class="input-sm" />
+                            <button class="btn btn-primary btn-sm" onclick="addToWatchlist()">Add</button>
+                        </div>
+                    </div>
+                    <div id="watchlist-items" style="max-height:300px;overflow-y:auto;">
+                        <p style="color:var(--text-secondary)">Loading...</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🔔 Price Alerts</span>
+                    </div>
+                    <div style="padding:0.5rem 0;">
+                        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+                            <input type="text" id="alert-symbol" placeholder="Symbol" class="input-sm" style="width:100px;"/>
+                            <select id="alert-condition" class="input-sm">
+                                <option value="above">Above</option>
+                                <option value="below">Below</option>
+                            </select>
+                            <input type="number" id="alert-price" placeholder="Price" class="input-sm" style="width:100px;"/>
+                            <button class="btn btn-success btn-sm" onclick="setAlert()">Set</button>
+                        </div>
+                    </div>
+                    <div id="alerts-triggered"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scanner Tab -->
+        <div id="tab-scanner" class="tab-content" style="display:none;">
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🔥 Top Movers</span>
+                        <button class="btn btn-sm" onclick="loadMovers()">🔄</button>
+                    </div>
+                    <div id="movers-list"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🟢 Top Gainers</span>
+                    </div>
+                    <div id="gainers-list"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🔴 Top Losers</span>
+                    </div>
+                    <div id="losers-list"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Planner Tab -->
+        <div id="tab-planner" class="tab-content" style="display:none;">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📝 New Trade Plan</span>
+                    </div>
+                    <div style="display:grid;gap:0.75rem;">
+                        <div style="display:flex;gap:0.5rem;">
+                            <input type="text" id="plan-symbol" placeholder="BTC-USDT" class="input-sm" style="flex:1;"/>
+                            <select id="plan-side" class="input-sm" style="width:100px;">
+                                <option value="long">🟢 Long</option>
+                                <option value="short">🔴 Short</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <input type="number" id="plan-entry" placeholder="Entry" class="input-sm" style="flex:1;"/>
+                            <input type="number" id="plan-sl" placeholder="Stop Loss" class="input-sm" style="flex:1;"/>
+                            <input type="number" id="plan-tp" placeholder="Take Profit" class="input-sm" style="flex:1;"/>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button class="btn btn-primary" onclick="calculateRR()">Calculate R:R</button>
+                            <button class="btn btn-success" onclick="createPlan()">Create Plan</button>
+                        </div>
+                        <div id="rr-result" style="padding:0.5rem;background:var(--bg-secondary);border-radius:8px;display:none;"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📋 My Plans</span>
+                    </div>
+                    <div id="plans-list" style="max-height:300px;overflow-y:auto;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Styles Tab -->
+        <div id="tab-styles" class="tab-content" style="display:none;">
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">Pending Approvals</span>
+                    <span class="card-title">🎭 Trading Style</span>
+                    <span id="current-style" class="status-badge status-demo">Loading...</span>
                 </div>
-                <div id="approvals-list">
-                    <p style="color:var(--text-secondary)">No pending approvals</p>
-                </div>
+                <div id="styles-grid" class="grid grid-3" style="margin-top:1rem;"></div>
             </div>
         </div>
     </div>
@@ -825,6 +1081,248 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         // Auto-refresh every 5 seconds
         setInterval(refreshData, 5000);
+        
+        // ==================== Tab Navigation ====================
+        
+        function showTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(t => {
+                t.style.display = 'none';
+                t.classList.remove('active');
+            });
+            const tab = document.getElementById('tab-' + tabName);
+            tab.style.display = 'block';
+            tab.classList.add('active');
+            
+            // Load tab-specific data
+            if (tabName === 'watchlist') loadWatchlist();
+            if (tabName === 'scanner') loadMovers();
+            if (tabName === 'styles') loadStyles();
+            if (tabName === 'planner') loadPlans();
+        }
+        
+        // ==================== Watchlist ====================
+        
+        async function loadWatchlist() {
+            try {
+                const items = await fetchApi('/watchlist');
+                const container = document.getElementById('watchlist-items');
+                
+                if (items.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary);padding:1rem;">No symbols in watchlist. Add one above!</p>';
+                    return;
+                }
+                
+                container.innerHTML = items.map(item => `
+                    <div class="watchlist-item">
+                        <div>
+                            <span class="watchlist-symbol">${item.symbol}</span>
+                            ${item.notes ? `<br><small style="color:var(--text-secondary)">${item.notes}</small>` : ''}
+                        </div>
+                        <div style="text-align:right;">
+                            <span class="watchlist-price ${item.change_24h >= 0 ? 'positive' : 'negative'}">
+                                $${item.price?.toLocaleString() || '—'}
+                            </span>
+                            <br>
+                            <small class="${item.change_24h >= 0 ? 'positive' : 'negative'}">
+                                ${item.change_24h >= 0 ? '+' : ''}${item.change_24h?.toFixed(2) || 0}%
+                            </small>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="removeFromWatchlist('${item.symbol}')" style="margin-left:0.5rem;">×</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load watchlist:', e);
+            }
+        }
+        
+        async function addToWatchlist() {
+            const input = document.getElementById('watchlist-add');
+            const symbol = input.value.trim().toUpperCase();
+            if (!symbol) return;
+            
+            await postApi('/watchlist', { symbol, notes: '' });
+            input.value = '';
+            loadWatchlist();
+        }
+        
+        async function removeFromWatchlist(symbol) {
+            await fetch('/api/watchlist/' + symbol, { method: 'DELETE' });
+            loadWatchlist();
+        }
+        
+        async function setAlert() {
+            const symbol = document.getElementById('alert-symbol').value.trim().toUpperCase();
+            const condition = document.getElementById('alert-condition').value;
+            const price = parseFloat(document.getElementById('alert-price').value);
+            
+            if (!symbol || !price) return;
+            
+            await postApi('/watchlist/alert', { symbol, condition, price });
+            document.getElementById('alert-symbol').value = '';
+            document.getElementById('alert-price').value = '';
+        }
+        
+        // ==================== Scanner ====================
+        
+        async function loadMovers() {
+            try {
+                const [movers, gainers, losers] = await Promise.all([
+                    fetchApi('/scanner/movers?limit=8'),
+                    fetchApi('/scanner/gainers?limit=5'),
+                    fetchApi('/scanner/losers?limit=5'),
+                ]);
+                
+                document.getElementById('movers-list').innerHTML = movers.map(m => `
+                    <div class="scanner-item">
+                        <span>${m.symbol}</span>
+                        <span class="${m.change_24h >= 0 ? 'positive' : 'negative'}">
+                            ${m.change_24h >= 0 ? '+' : ''}${m.change_24h?.toFixed(2) || 0}%
+                        </span>
+                    </div>
+                `).join('');
+                
+                document.getElementById('gainers-list').innerHTML = gainers.map(g => `
+                    <div class="scanner-item">
+                        <span>${g.symbol}</span>
+                        <span class="positive">+${g.change_24h?.toFixed(2) || 0}%</span>
+                    </div>
+                `).join('');
+                
+                document.getElementById('losers-list').innerHTML = losers.map(l => `
+                    <div class="scanner-item">
+                        <span>${l.symbol}</span>
+                        <span class="negative">${l.change_24h?.toFixed(2) || 0}%</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load scanner:', e);
+            }
+        }
+        
+        // ==================== Planner ====================
+        
+        async function calculateRR() {
+            const entry = parseFloat(document.getElementById('plan-entry').value);
+            const sl = parseFloat(document.getElementById('plan-sl').value);
+            const tp = parseFloat(document.getElementById('plan-tp').value);
+            const side = document.getElementById('plan-side').value;
+            
+            if (!entry || !sl || !tp) {
+                alert('Please fill in entry, SL, and TP');
+                return;
+            }
+            
+            const result = await postApi('/planner/calculate-rr', {
+                entry, stop_loss: sl, take_profit: tp, side
+            });
+            
+            const box = document.getElementById('rr-result');
+            box.style.display = 'block';
+            box.innerHTML = `
+                <strong>R:R = ${result.risk_reward?.toFixed(2) || '—'}</strong><br>
+                Risk: ${result.risk_percent?.toFixed(2)}% (${result.risk?.toFixed(2)})<br>
+                Reward: ${result.reward_percent?.toFixed(2)}% (${result.reward?.toFixed(2)})<br>
+                ${result.valid ? '✅ Valid' : '❌ Invalid setup'}
+            `;
+        }
+        
+        async function createPlan() {
+            const symbol = document.getElementById('plan-symbol').value.trim().toUpperCase();
+            const side = document.getElementById('plan-side').value;
+            const entry = parseFloat(document.getElementById('plan-entry').value);
+            const sl = parseFloat(document.getElementById('plan-sl').value);
+            const tp = parseFloat(document.getElementById('plan-tp').value);
+            
+            if (!symbol || !entry || !sl || !tp) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            const result = await postApi('/planner', {
+                symbol, side, entry, stop_loss: sl, take_profit: tp
+            });
+            
+            if (result.success) {
+                // Clear form
+                document.getElementById('plan-symbol').value = '';
+                document.getElementById('plan-entry').value = '';
+                document.getElementById('plan-sl').value = '';
+                document.getElementById('plan-tp').value = '';
+                document.getElementById('rr-result').style.display = 'none';
+                loadPlans();
+            }
+        }
+        
+        async function loadPlans() {
+            try {
+                const plans = await fetchApi('/planner');
+                const container = document.getElementById('plans-list');
+                
+                if (plans.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary)">No trade plans yet</p>';
+                    return;
+                }
+                
+                container.innerHTML = plans.slice(0, 10).map(p => `
+                    <div class="plan-item">
+                        <div class="plan-header">
+                            <span>
+                                <strong>${p.symbol}</strong>
+                                <span class="${p.side === 'long' ? 'positive' : 'negative'}">${p.side.toUpperCase()}</span>
+                            </span>
+                            <span>R:R ${p.risk_reward?.toFixed(2)}</span>
+                        </div>
+                        <div style="font-size:0.75rem;color:var(--text-secondary);">
+                            Entry: $${p.entry?.toLocaleString()} | SL: $${p.stop_loss?.toLocaleString()} | TP: $${p.take_profit?.toLocaleString()}
+                        </div>
+                        <div style="font-size:0.75rem;margin-top:0.25rem;">
+                            Status: <span class="${p.status === 'executed' ? 'positive' : ''}">${p.status}</span>
+                            <button class="btn btn-danger btn-sm" onclick="deletePlan('${p.plan_id}')" style="float:right;padding:0.25rem 0.5rem;">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load plans:', e);
+            }
+        }
+        
+        async function deletePlan(planId) {
+            await fetch('/api/planner/' + planId, { method: 'DELETE' });
+            loadPlans();
+        }
+        
+        // ==================== Styles ====================
+        
+        async function loadStyles() {
+            try {
+                const data = await fetchApi('/styles');
+                document.getElementById('current-style').textContent = data.current.toUpperCase();
+                
+                const container = document.getElementById('styles-grid');
+                container.innerHTML = Object.entries(data.styles).map(([key, style]) => `
+                    <div class="style-card ${key === data.current ? 'active' : ''}" onclick="setStyle('${key}')">
+                        <div class="style-emoji">${style.emoji}</div>
+                        <div class="style-name">${style.name}</div>
+                        <div class="style-desc">${style.description}</div>
+                        <div style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-secondary);">
+                            Risk: ${style.risk_per_trade}% | Leverage: ${style.max_leverage}x | R:R: ${style.min_rr_ratio}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load styles:', e);
+            }
+        }
+        
+        async function setStyle(styleName) {
+            await postApi('/styles/' + styleName);
+            loadStyles();
+        }
         
         // ==================== Chat Functions ====================
         
