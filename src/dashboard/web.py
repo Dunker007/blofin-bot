@@ -1805,32 +1805,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 
                 // Build style cards
                 const styles = data.styles || {};
-                let html = '';
+                cardsContainer.innerHTML = '';
+                
                 for (const [key, style] of Object.entries(styles)) {
                     const isActive = key === currentStyleName;
-                    const borderColor = isActive ? 'var(--accent)' : 'var(--border)';
-                    const bg = isActive ? 'rgba(59,130,246,0.1)' : 'var(--bg-card)';
+                    const card = document.createElement('div');
+                    card.setAttribute('data-style', key);
+                    card.style.cssText = 'background:' + (isActive ? 'rgba(59,130,246,0.1)' : 'var(--bg-card)') + 
+                        ';border:2px solid ' + (isActive ? 'var(--accent)' : 'var(--border)') + 
+                        ';border-radius:12px;padding:1rem;cursor:pointer;transition:all 0.2s;';
+                    card.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.5rem;">' + style.emoji + '</div>' +
+                        '<div style="font-weight:bold;">' + style.name + '</div>' +
+                        '<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.25rem;">' +
+                        style.risk_per_trade + '% risk · ' + style.max_leverage + 'x max</div>';
                     
-                    html += `
-                        <div onclick="setStyle('${key}')" style="
-                            background:${bg};
-                            border:2px solid ${borderColor};
-                            border-radius:12px;
-                            padding:1rem;
-                            cursor:pointer;
-                            transition:all 0.2s;
-                        " onmouseover="this.style.borderColor='var(--accent)'" 
-                           onmouseout="this.style.borderColor='${isActive ? 'var(--accent)' : 'var(--border)'}'"
-                        >
-                            <div style="font-size:1.5rem;margin-bottom:0.5rem;">${style.emoji}</div>
-                            <div style="font-weight:bold;">${style.name}</div>
-                            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.25rem;">
-                                ${style.risk_per_trade}% risk · ${style.max_leverage}x max
-                            </div>
-                        </div>
-                    `;
+                    card.addEventListener('click', function() {
+                        setStyle(key);
+                    });
+                    card.addEventListener('mouseover', function() {
+                        this.style.borderColor = 'var(--accent)';
+                    });
+                    card.addEventListener('mouseout', function() {
+                        this.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
+                    });
+                    
+                    cardsContainer.appendChild(card);
                 }
-                cardsContainer.innerHTML = html;
                 
                 // Update current style display
                 const current = styles[currentStyleName];
@@ -1850,7 +1850,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     document.getElementById('param-holdtime').textContent = current.hold_time;
                 }
             } catch (e) {
-                console.log('Failed to load styles');
+                console.log('Failed to load styles', e);
             }
         }
         
@@ -1862,7 +1862,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     loadStyles();
                 }
             } catch (e) {
-                console.log('Failed to set style');
+                console.log('Failed to set style', e);
             }
         }
         
