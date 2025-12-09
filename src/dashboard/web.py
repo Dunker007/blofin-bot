@@ -860,6 +860,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <button class="tab" onclick="showTab('watchlist')">⭐ Watchlist</button>
             <button class="tab" onclick="showTab('scanner')">🔍 Scanner</button>
             <button class="tab" onclick="showTab('planner')">📝 Planner</button>
+            <button class="tab" onclick="showTab('actions')">⚡ Actions</button>
+            <button class="tab" onclick="showTab('journal')">📓 Journal</button>
+            <button class="tab" onclick="showTab('stats')">📈 Stats</button>
             <button class="tab" onclick="showTab('styles')">🎭 Styles</button>
         </div>
         
@@ -1004,6 +1007,95 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 <div id="styles-grid" class="grid grid-3" style="margin-top:1rem;"></div>
             </div>
         </div>
+        
+        <!-- Quick Actions Tab -->
+        <div id="tab-actions" class="tab-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">⚡ Quick Actions</span>
+                    <span style="color:var(--text-secondary);font-size:0.75rem;">One-click preset trades</span>
+                </div>
+                <div id="actions-grid" class="grid grid-4" style="margin-top:1rem;"></div>
+            </div>
+        </div>
+        
+        <!-- Session Journal Tab -->
+        <div id="tab-journal" class="tab-content" style="display:none;">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📓 Today's Journal</span>
+                        <select id="journal-mood" class="input-sm" onchange="updateJournalMood()">
+                            <option value="bullish">🟢 Bullish</option>
+                            <option value="bearish">🔴 Bearish</option>
+                            <option value="neutral" selected>⚪ Neutral</option>
+                            <option value="uncertain">🟡 Uncertain</option>
+                        </select>
+                    </div>
+                    <div style="display:grid;gap:0.75rem;margin-top:1rem;">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);">Trading Plan</label>
+                            <textarea id="journal-plan" class="input-sm" style="width:100%;min-height:80px;" placeholder="What's your plan for today?"></textarea>
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);">Notes</label>
+                            <textarea id="journal-notes" class="input-sm" style="width:100%;min-height:80px;" placeholder="Thoughts, observations..."></textarea>
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);">End of Day Review</label>
+                            <textarea id="journal-review" class="input-sm" style="width:100%;min-height:80px;" placeholder="How did it go?"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveJournal()">💾 Save Journal</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📜 Recent Entries</span>
+                    </div>
+                    <div id="journal-history" style="max-height:400px;overflow-y:auto;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Stats Tab -->
+        <div id="tab-stats" class="tab-content" style="display:none;">
+            <div class="grid grid-4">
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Win Rate</span></div>
+                    <div class="metric" id="stat-winrate">—%</div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Total P&L</span></div>
+                    <div class="metric" id="stat-pnl">$0.00</div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Trades</span></div>
+                    <div class="metric" id="stat-trades">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Current Streak</span></div>
+                    <div class="metric" id="stat-streak">0</div>
+                </div>
+            </div>
+            <div class="grid grid-2" style="margin-top:1rem;">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📊 Performance Details</span>
+                    </div>
+                    <table>
+                        <tbody id="stats-table">
+                            <tr><td colspan="2" style="text-align:center;color:var(--text-secondary)">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📈 Daily P&L</span>
+                    </div>
+                    <div id="pnl-chart" style="min-height:200px;"></div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -1103,6 +1195,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (tabName === 'scanner') loadMovers();
             if (tabName === 'styles') loadStyles();
             if (tabName === 'planner') loadPlans();
+            if (tabName === 'actions') loadActions();
+            if (tabName === 'journal') loadJournal();
+            if (tabName === 'stats') loadStats();
         }
         
         // ==================== Watchlist ====================
@@ -1322,6 +1417,145 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         async function setStyle(styleName) {
             await postApi('/styles/' + styleName);
             loadStyles();
+        }
+        
+        // ==================== Quick Actions ====================
+        
+        async function loadActions() {
+            try {
+                const actions = await fetchApi('/actions');
+                const container = document.getElementById('actions-grid');
+                
+                container.innerHTML = actions.map(a => `
+                    <div class="style-card" onclick="executeAction('${a.action_id}')">
+                        <div style="font-size:1.5rem;margin-bottom:0.5rem;">${a.side === 'long' ? '🟢' : '🔴'}</div>
+                        <div class="style-name">${a.name}</div>
+                        <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.5rem;">
+                            ${a.symbol}<br>
+                            Size: ${a.size_percent}% | Lev: ${a.leverage}x<br>
+                            SL: ${a.stop_loss_percent}% | TP: ${a.take_profit_percent}%
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load actions:', e);
+            }
+        }
+        
+        async function executeAction(actionId) {
+            if (!confirm('Execute this quick action?')) return;
+            
+            const result = await postApi('/actions/' + actionId + '/execute');
+            if (result.success) {
+                alert('Action executed!');
+            } else {
+                alert('Failed: ' + (result.error || 'Unknown error'));
+            }
+        }
+        
+        // ==================== Session Journal ====================
+        
+        async function loadJournal() {
+            try {
+                // Load today's journal
+                const today = await fetchApi('/journal/session');
+                document.getElementById('journal-mood').value = today.mood || 'neutral';
+                document.getElementById('journal-plan').value = today.plan || '';
+                document.getElementById('journal-notes').value = today.notes || '';
+                document.getElementById('journal-review').value = today.review || '';
+                
+                // Load history
+                const history = await fetchApi('/journal/session/history?days=7');
+                const container = document.getElementById('journal-history');
+                
+                if (history.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary)">No entries yet</p>';
+                    return;
+                }
+                
+                container.innerHTML = history.map(e => `
+                    <div class="plan-item">
+                        <div class="plan-header">
+                            <strong>${e.date}</strong>
+                            <span>${e.mood === 'bullish' ? '🟢' : e.mood === 'bearish' ? '🔴' : '⚪'}</span>
+                        </div>
+                        ${e.plan ? `<div style="font-size:0.75rem;"><strong>Plan:</strong> ${e.plan.substring(0, 100)}...</div>` : ''}
+                        ${e.notes ? `<div style="font-size:0.75rem;margin-top:0.25rem;">${e.notes.substring(0, 100)}...</div>` : ''}
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load journal:', e);
+            }
+        }
+        
+        async function saveJournal() {
+            const mood = document.getElementById('journal-mood').value;
+            const plan = document.getElementById('journal-plan').value;
+            const notes = document.getElementById('journal-notes').value;
+            const review = document.getElementById('journal-review').value;
+            
+            await postApi('/journal/session?mood=' + mood + '&plan=' + encodeURIComponent(plan) + '&notes=' + encodeURIComponent(notes) + '&review=' + encodeURIComponent(review));
+            alert('Journal saved!');
+        }
+        
+        async function updateJournalMood() {
+            const mood = document.getElementById('journal-mood').value;
+            await postApi('/journal/session?mood=' + mood);
+        }
+        
+        // ==================== Performance Stats ====================
+        
+        async function loadStats() {
+            try {
+                const stats = await fetchApi('/performance');
+                
+                // Update metrics
+                document.getElementById('stat-winrate').textContent = stats.win_rate + '%';
+                document.getElementById('stat-pnl').textContent = '$' + stats.total_pnl.toFixed(2);
+                document.getElementById('stat-pnl').className = 'metric ' + (stats.total_pnl >= 0 ? 'positive' : 'negative');
+                document.getElementById('stat-trades').textContent = stats.total_trades;
+                
+                const streakEmoji = stats.streak_type === 'win' ? '🔥' : stats.streak_type === 'loss' ? '❄️' : '';
+                document.getElementById('stat-streak').textContent = streakEmoji + stats.current_streak;
+                
+                // Update details table
+                document.getElementById('stats-table').innerHTML = `
+                    <tr><td>Winning Trades</td><td class="positive">${stats.winning_trades}</td></tr>
+                    <tr><td>Losing Trades</td><td class="negative">${stats.losing_trades}</td></tr>
+                    <tr><td>Average Win</td><td class="positive">$${stats.average_win.toFixed(2)}</td></tr>
+                    <tr><td>Average Loss</td><td class="negative">$${stats.average_loss.toFixed(2)}</td></tr>
+                    <tr><td>Largest Win</td><td class="positive">$${stats.largest_win.toFixed(2)}</td></tr>
+                    <tr><td>Largest Loss</td><td class="negative">$${stats.largest_loss.toFixed(2)}</td></tr>
+                    <tr><td>Profit Factor</td><td>${stats.profit_factor.toFixed(2)}</td></tr>
+                    <tr><td>Expectancy</td><td>$${stats.expectancy.toFixed(2)}</td></tr>
+                    <tr><td>Max Win Streak</td><td>🔥${stats.max_win_streak}</td></tr>
+                    <tr><td>Max Loss Streak</td><td>❄️${stats.max_loss_streak}</td></tr>
+                `;
+                
+                // Load daily P&L
+                const daily = await fetchApi('/performance/daily?days=14');
+                const chartContainer = document.getElementById('pnl-chart');
+                
+                if (daily.length === 0) {
+                    chartContainer.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:2rem;">No trade history yet</p>';
+                    return;
+                }
+                
+                // Simple bar chart
+                const maxPnl = Math.max(...daily.map(d => Math.abs(d.pnl)), 1);
+                chartContainer.innerHTML = `
+                    <div style="display:flex;align-items:flex-end;gap:4px;height:150px;padding:1rem 0;">
+                        ${daily.map(d => `
+                            <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+                                <div style="width:100%;background:${d.pnl >= 0 ? 'var(--green)' : 'var(--red)'};height:${Math.max(Math.abs(d.pnl) / maxPnl * 100, 5)}px;border-radius:4px 4px 0 0;"></div>
+                                <div style="font-size:0.6rem;color:var(--text-secondary);margin-top:4px;">${d.date.substring(5)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
         }
         
         // ==================== Chat Functions ====================
@@ -1595,6 +1829,113 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
             take_profit=request.take_profit,
             side=request.side,
         )
+    
+    # ==================== Session Journal Endpoints ====================
+    
+    from ..features.journal import SessionJournal
+    session_journal = SessionJournal()
+    
+    @app.get("/api/journal/session")
+    async def get_session():
+        """Get today's session journal."""
+        return session_journal.get_today().to_dict()
+    
+    @app.post("/api/journal/session")
+    async def update_session(
+        mood: Optional[str] = None,
+        notes: Optional[str] = None,
+        plan: Optional[str] = None,
+        review: Optional[str] = None,
+    ):
+        """Update today's session journal."""
+        entry = session_journal.update_today(
+            mood=mood,
+            notes=notes,
+            plan=plan,
+            review=review,
+        )
+        return {"success": True, "entry": entry.to_dict()}
+    
+    @app.get("/api/journal/session/history")
+    async def get_session_history(days: int = 7):
+        """Get recent session journal entries."""
+        entries = session_journal.get_recent(days)
+        return [e.to_dict() for e in entries]
+    
+    # ==================== Quick Actions Endpoints ====================
+    
+    from ..features.actions import QuickActions
+    quick_actions = QuickActions()
+    
+    @app.get("/api/actions")
+    async def get_quick_actions():
+        """Get all quick actions."""
+        return [a.to_dict() for a in quick_actions.get_all()]
+    
+    @app.post("/api/actions/{action_id}/execute")
+    async def execute_quick_action(action_id: str):
+        """Execute a quick action."""
+        action = quick_actions.get(action_id)
+        if not action:
+            raise HTTPException(status_code=404, detail="Action not found")
+        
+        # Calculate actual SL/TP from percentages
+        try:
+            ticker = engine.market.get_ticker(action.symbol)
+            price = ticker.last
+            
+            stop_loss = None
+            take_profit = None
+            
+            if action.stop_loss_percent:
+                if action.side == "long":
+                    stop_loss = price * (1 - action.stop_loss_percent / 100)
+                else:
+                    stop_loss = price * (1 + action.stop_loss_percent / 100)
+            
+            if action.take_profit_percent:
+                if action.side == "long":
+                    take_profit = price * (1 + action.take_profit_percent / 100)
+                else:
+                    take_profit = price * (1 - action.take_profit_percent / 100)
+            
+            # Execute
+            result = engine.quick_trade(
+                symbol=action.symbol,
+                side=action.side,
+                size=action.size_percent,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+            )
+            
+            return {
+                "success": result.success,
+                "action": action.to_dict(),
+                "error": result.error,
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # ==================== Performance Endpoints ====================
+    
+    from ..features.performance import PerformanceTracker
+    perf_tracker = PerformanceTracker(engine.trade_journal)
+    
+    @app.get("/api/performance")
+    async def get_performance(days: Optional[int] = None):
+        """Get performance statistics."""
+        stats = perf_tracker.get_stats(days=days)
+        return stats.to_dict()
+    
+    @app.get("/api/performance/summary")
+    async def get_performance_summary():
+        """Get full performance summary."""
+        return perf_tracker.get_summary()
+    
+    @app.get("/api/performance/daily")
+    async def get_daily_pnl(days: int = 30):
+        """Get daily P&L for charting."""
+        return perf_tracker.get_daily_pnl(days)
     
     # ==================== Dashboard ====================
     
