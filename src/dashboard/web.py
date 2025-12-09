@@ -48,6 +48,40 @@ class ChatRequest(BaseModel):
     symbol: Optional[str] = None  # Optional symbol context
 
 
+class WatchlistAddRequest(BaseModel):
+    """Add symbol to watchlist."""
+    symbol: str
+    notes: str = ""
+    tags: List[str] = []
+
+
+class AlertRequest(BaseModel):
+    """Price alert request."""
+    symbol: str
+    condition: str  # above/below
+    price: float
+
+
+class TradePlanRequest(BaseModel):
+    """Create trade plan."""
+    symbol: str
+    side: str  # long/short
+    entry: float
+    stop_loss: float
+    take_profit: float
+    size_percent: float = 1.0
+    leverage: int = 3
+    notes: str = ""
+
+
+class RRCalcRequest(BaseModel):
+    """R:R calculator request."""
+    entry: float
+    stop_loss: float
+    take_profit: float
+    side: str = "long"
+
+
 # ==================== WebSocket Manager ====================
 
 class ConnectionManager:
@@ -897,6 +931,9 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
     from ..ai.brain import AIBrain
     from ..data.market import MarketData
     from ..data.account import AccountData
+    from ..features.watchlist import Watchlist, MarketScanner
+    from ..features.styles import TradingStyleManager, TradingStyle
+    from ..features.planner import TradePlanner
     
     # Initialize components
     market = MarketData(client)
@@ -904,7 +941,164 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
     brain = AIBrain(config, market, account)
     engine = TradingEngine(config, client, brain)
     
+    # Initialize features
+    watchlist = Watchlist(market)
+    scanner = MarketScanner(market)
+    styles = TradingStyleManager()
+    planner = TradePlanner()
+    
     app = create_api(engine)
+    
+    # ==================== Watchlist Endpoints ====================
+    
+    @app.get("/api/watchlist")
+    async def get_watchlist():
+        """Get watchlist with prices."""
+        return watchlist.get_with_prices()
+    
+    @app.post("/api/watchlist")
+    async def add_to_watchlist(request: WatchlistAddRequest):
+        """Add symbol to watchlist."""
+        item = watchlist.add(request.symbol, request.notes, request.tags)
+        return {"success": True, "item": item.to_dict()}
+    
+    @app.delete("/api/watchlist/{symbol}")
+    async def remove_from_watchlist(symbol: str):
+        """Remove symbol from watchlist."""
+        success = watchlist.remove(symbol)
+        return {"success": success}
+    
+    @app.post("/api/watchlist/alert")
+    async def set_price_alert(request: AlertRequest):
+        """Set a price alert."""
+        success = watchlist.set_alert(request.symbol, request.condition, request.price)
+        return {"success": success}
+    
+    @app.get("/api/watchlist/alerts")
+    async def check_alerts():
+        """Check for triggered alerts."""
+        return watchlist.check_alerts()
+    
+    # ==================== Scanner Endpoints ====================
+    
+    @app.get("/api/scanner/movers")
+    async def get_top_movers(limit: int = 10):
+        """Get top market movers."""
+        return scanner.get_top_movers(limit)
+    
+    @app.get("/api/scanner/gainers")
+    async def get_gainers(limit: int = 5):
+        """Get top gainers."""
+        return scanner.get_gainers(limit)
+    
+    @app.get("/api/scanner/losers")
+    async def get_losers(limit: int = 5):
+        """Get top losers."""
+        return scanner.get_losers(limit)
+    
+    # ==================== Trading Style Endpoints ====================
+    
+    @app.get("/api/styles")
+    async def get_styles():
+        """Get all trading styles."""
+        return {
+            "styles": styles.get_all_styles(),
+            "current": styles.current.value,
+            "config": styles.current_config.to_dict(),
+        }
+    
+    @app.post("/api/styles/{style_name}")
+    async def set_style(style_name: str):
+        """Set active trading style."""
+        config = styles.set_style_by_name(style_name)
+        if config:
+            return {"success": True, "style": config.to_dict()}
+        raise HTTPException(status_code=400, detail=f"Unknown style: {style_name}")
+    
+    @app.get("/api/styles/risk")
+    async def get_risk_params():
+        """Get risk parameters for current style."""
+        return styles.get_risk_params()
+    
+    # ==================== Trade Planner Endpoints ====================
+    
+    @app.get("/api/planner")
+    async def get_plans(status: Optional[str] = None):
+        """Get trade plans."""
+        from ..features.planner import PlanStatus
+        plan_status = PlanStatus(status) if status else None
+        plans = planner.get_all_plans(plan_status)
+        return [p.to_dict() for p in plans]
+    
+    @app.post("/api/planner")
+    async def create_plan(request: TradePlanRequest):
+        """Create a trade plan."""
+        plan = planner.create_plan(
+            symbol=request.symbol,
+            side=request.side,
+            entry=request.entry,
+            stop_loss=request.stop_loss,
+            take_profit=request.take_profit,
+            size_percent=request.size_percent,
+            leverage=request.leverage,
+            notes=request.notes,
+        )
+        valid, errors = plan.validate()
+        return {
+            "success": True,
+            "plan": plan.to_dict(),
+            "valid": valid,
+            "errors": errors,
+        }
+    
+    @app.post("/api/planner/{plan_id}/ready")
+    async def mark_plan_ready(plan_id: str):
+        """Mark plan as ready for execution."""
+        success = planner.set_ready(plan_id)
+        return {"success": success}
+    
+    @app.post("/api/planner/{plan_id}/execute")
+    async def execute_plan(plan_id: str):
+        """Execute a trade plan."""
+        plan = planner.get_plan(plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Execute via trading engine
+        result = engine.quick_trade(
+            symbol=plan.symbol,
+            side=plan.side,
+            size=plan.size_percent,  # TODO: Calculate actual size
+            stop_loss=plan.stop_loss,
+            take_profit=plan.take_profit,
+        )
+        
+        if result.success:
+            planner.mark_executed(plan_id)
+        
+        return {
+            "success": result.success,
+            "order": result.to_dict() if result.success else None,
+            "error": result.error,
+        }
+    
+    @app.delete("/api/planner/{plan_id}")
+    async def delete_plan(plan_id: str):
+        """Delete a trade plan."""
+        success = planner.delete_plan(plan_id)
+        return {"success": success}
+    
+    @app.post("/api/planner/calculate-rr")
+    async def calculate_rr(request: RRCalcRequest):
+        """Calculate R:R ratio."""
+        return planner.calculate_rr(
+            entry=request.entry,
+            stop_loss=request.stop_loss,
+            take_profit=request.take_profit,
+            side=request.side,
+        )
+    
+    # ==================== Dashboard ====================
     
     @app.get("/", response_class=HTMLResponse)
     async def dashboard():
@@ -912,3 +1106,4 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
         return DASHBOARD_HTML
     
     return app
+
