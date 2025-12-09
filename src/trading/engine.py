@@ -383,6 +383,19 @@ class TradingEngine:
         except Exception:
             open_orders = 0
         
+        # Get account balance with error handling
+        account = {"equity": 0, "available": 0, "upnl": 0, "margin": 0}
+        try:
+            balance = self.account.get_balance()
+            account = {
+                "equity": balance.total_equity,
+                "available": balance.available_balance,
+                "upnl": balance.unrealized_pnl,
+                "margin": balance.used_margin,
+            }
+        except Exception as e:
+            logger.debug(f"Failed to get balance: {e}")
+        
         return {
             "autonomy_level": self.config.autonomy.level,
             "is_paused": self.is_paused,
@@ -391,6 +404,7 @@ class TradingEngine:
             "session_limits": self.limits.get_stats(),
             "positions": positions,
             "open_orders": open_orders,
+            "account": account,
         }
     
     def get_pending_approvals(self) -> list:

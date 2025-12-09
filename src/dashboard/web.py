@@ -502,6 +502,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .positive { color: var(--green); }
         .negative { color: var(--red); }
         
+        .metric-card {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .metric-card .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        .metric-card .metric-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        
         .btn {
             padding: 0.75rem 1.5rem;
             border: none;
@@ -869,10 +885,31 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         <!-- Positions Tab -->
         <div id="tab-positions" class="tab-content active">
+            <!-- Account Summary -->
+            <div class="grid grid-4" style="margin-bottom:1rem;">
+                <div class="metric-card">
+                    <div class="metric-label">💰 Account Value</div>
+                    <div class="metric-value" id="account-equity">$0.00</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">📊 Unrealized P&L</div>
+                    <div class="metric-value" id="account-upnl">$0.00</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">🔓 Available</div>
+                    <div class="metric-value" id="account-available">$0.00</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">⚡ Margin Used</div>
+                    <div class="metric-value" id="account-margin">0%</div>
+                </div>
+            </div>
+            
             <div class="grid grid-2">
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">Open Positions</span>
+                        <span class="card-title">📈 Open Positions</span>
+                        <button class="btn btn-sm" onclick="refreshPositions()">🔄 Refresh</button>
                     </div>
                     <table>
                         <thead>
@@ -880,22 +917,95 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 <th>Symbol</th>
                                 <th>Side</th>
                                 <th>Size</th>
+                                <th>Entry</th>
+                                <th>Mark</th>
                                 <th>P&L</th>
-                                <th>Actions</th>
+                                <th>ROI</th>
                             </tr>
                         </thead>
                         <tbody id="positions-table">
-                            <tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">No positions</td></tr>
+                            <tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
                 
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">Pending Approvals</span>
+                        <span class="card-title">🧮 Position Size Calculator</span>
                     </div>
-                    <div id="approvals-list">
-                        <p style="color:var(--text-secondary)">No pending approvals</p>
+                    <div style="display:grid;gap:0.75rem;margin-top:1rem;">
+                        <div class="grid grid-2" style="gap:0.5rem;">
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-secondary);">Account Risk %</label>
+                                <input type="number" id="calc-risk" value="2" step="0.5" class="input-sm" style="width:100%;" />
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-secondary);">Entry Price</label>
+                                <input type="number" id="calc-entry" placeholder="95000" class="input-sm" style="width:100%;" />
+                            </div>
+                        </div>
+                        <div class="grid grid-2" style="gap:0.5rem;">
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-secondary);">Stop Loss</label>
+                                <input type="number" id="calc-stop" placeholder="94000" class="input-sm" style="width:100%;" />
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-secondary);">Leverage</label>
+                                <input type="number" id="calc-leverage" value="3" class="input-sm" style="width:100%;" />
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" onclick="calculateSize()">Calculate Position Size</button>
+                        <div id="calc-result" style="background:var(--bg-tertiary);padding:1rem;border-radius:8px;display:none;">
+                            <div class="grid grid-3" style="text-align:center;">
+                                <div>
+                                    <div style="font-size:0.7rem;color:var(--text-secondary);">Position Size</div>
+                                    <div id="calc-size" style="font-size:1.2rem;font-weight:bold;color:var(--accent);">-</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.7rem;color:var(--text-secondary);">Risk Amount</div>
+                                    <div id="calc-amount" style="font-size:1rem;">-</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.7rem;color:var(--text-secondary);">Notional</div>
+                                    <div id="calc-notional" style="font-size:1rem;">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Trade Logger -->
+            <div class="card" style="margin-top:1rem;">
+                <div class="card-header">
+                    <span class="card-title">📝 Log a Trade (from Blofin)</span>
+                </div>
+                <div class="grid grid-6" style="gap:0.5rem;margin-top:1rem;">
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Symbol</label>
+                        <input type="text" id="log-symbol" value="BTC-USDT" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Side</label>
+                        <select id="log-side" class="input-sm" style="width:100%;">
+                            <option value="long">Long</option>
+                            <option value="short">Short</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Entry</label>
+                        <input type="number" id="log-entry" placeholder="95000" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Exit</label>
+                        <input type="number" id="log-exit" placeholder="96000" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div>
+                        <label style="font-size:0.7rem;color:var(--text-secondary);">Size</label>
+                        <input type="number" id="log-size" placeholder="0.01" step="0.001" class="input-sm" style="width:100%;" />
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                        <button class="btn btn-success btn-sm" onclick="logTrade()" style="width:100%;">Log Trade</button>
                     </div>
                 </div>
             </div>
@@ -1211,24 +1321,108 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 isPaused = status.is_paused;
                 document.getElementById('pause-btn').textContent = isPaused ? '▶️ Resume' : '⏸️ Pause';
                 
+                // Update account metrics
+                const balance = status.account || {};
+                document.getElementById('account-equity').textContent = '$' + (balance.equity || 0).toFixed(2);
+                
+                const upnl = balance.upnl || 0;
+                const upnlEl = document.getElementById('account-upnl');
+                upnlEl.textContent = '$' + upnl.toFixed(2);
+                upnlEl.className = 'metric-value ' + (upnl >= 0 ? 'positive' : 'negative');
+                
+                document.getElementById('account-available').textContent = '$' + (balance.available || 0).toFixed(2);
+                
+                const marginPct = balance.equity > 0 ? ((balance.margin || 0) / balance.equity * 100) : 0;
+                document.getElementById('account-margin').textContent = marginPct.toFixed(1) + '%';
+                
                 // Update positions table
                 const positions = status.positions?.positions || [];
                 const tbody = document.getElementById('positions-table');
                 if (positions.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">No positions</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">No open positions</td></tr>';
                 } else {
                     tbody.innerHTML = positions.map(p => `
                         <tr>
-                            <td>${p.symbol}</td>
+                            <td><strong>${p.symbol}</strong></td>
                             <td class="${p.side === 'long' ? 'positive' : 'negative'}">${p.side.toUpperCase()}</td>
                             <td>${p.size}</td>
-                            <td class="${p.pnl >= 0 ? 'positive' : 'negative'}">$${p.pnl?.toFixed(2) || '0.00'}</td>
-                            <td><button class="btn btn-danger" onclick="closePosition('${p.symbol}')" style="padding:0.25rem 0.5rem;font-size:0.75rem">Close</button></td>
+                            <td>$${(p.entry || 0).toFixed(2)}</td>
+                            <td>$${(p.mark || p.entry || 0).toFixed(2)}</td>
+                            <td class="${(p.pnl || 0) >= 0 ? 'positive' : 'negative'}">$${(p.pnl || 0).toFixed(2)}</td>
+                            <td class="${(p.roi || 0) >= 0 ? 'positive' : 'negative'}">${(p.roi || 0).toFixed(2)}%</td>
                         </tr>
                     `).join('');
                 }
             } catch (e) {
                 console.error('Refresh failed:', e);
+            }
+        }
+        
+        async function refreshPositions() {
+            await refreshData();
+        }
+        
+        // Position Size Calculator
+        function calculateSize() {
+            const risk = parseFloat(document.getElementById('calc-risk').value) || 2;
+            const entry = parseFloat(document.getElementById('calc-entry').value);
+            const stop = parseFloat(document.getElementById('calc-stop').value);
+            const leverage = parseFloat(document.getElementById('calc-leverage').value) || 1;
+            
+            if (!entry || !stop) {
+                alert('Please enter entry and stop loss prices');
+                return;
+            }
+            
+            // Get account equity
+            const equityText = document.getElementById('account-equity').textContent;
+            const equity = parseFloat(equityText.replace('$', '').replace(',', '')) || 1000;
+            
+            // Calculate
+            const riskAmount = equity * (risk / 100);
+            const stopDistance = Math.abs(entry - stop);
+            const stopPct = stopDistance / entry * 100;
+            
+            // Position size = risk amount / (stop distance * leverage effect)
+            const positionSize = riskAmount / stopDistance;
+            const notional = positionSize * entry;
+            
+            // Show result
+            document.getElementById('calc-result').style.display = 'block';
+            document.getElementById('calc-size').textContent = positionSize.toFixed(6);
+            document.getElementById('calc-amount').textContent = '$' + riskAmount.toFixed(2);
+            document.getElementById('calc-notional').textContent = '$' + notional.toFixed(2);
+        }
+        
+        // Trade Logger
+        async function logTrade() {
+            const symbol = document.getElementById('log-symbol').value;
+            const side = document.getElementById('log-side').value;
+            const entry = parseFloat(document.getElementById('log-entry').value);
+            const exit = parseFloat(document.getElementById('log-exit').value);
+            const size = parseFloat(document.getElementById('log-size').value);
+            
+            if (!entry || !exit || !size) {
+                alert('Please fill all trade fields');
+                return;
+            }
+            
+            try {
+                const result = await postApi('/trades/log', {
+                    symbol, side, entry_price: entry, exit_price: exit, size
+                });
+                
+                if (result.success) {
+                    alert('✅ Trade logged! P&L: $' + result.pnl.toFixed(2));
+                    // Clear form
+                    document.getElementById('log-entry').value = '';
+                    document.getElementById('log-exit').value = '';
+                    document.getElementById('log-size').value = '';
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Unknown'));
+                }
+            } catch (e) {
+                alert('❌ Failed to log trade');
             }
         }
         
@@ -2157,6 +2351,55 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
     async def get_daily_pnl(days: int = 30):
         """Get daily P&L for charting."""
         return perf_tracker.get_daily_pnl(days)
+    
+    # ==================== Trade Logging ====================
+    
+    @app.post("/api/trades/log")
+    async def log_trade(request: dict):
+        """Log a manual trade for tracking."""
+        try:
+            symbol = request.get("symbol", "BTC-USDT")
+            side = request.get("side", "long")
+            entry_price = float(request.get("entry_price", 0))
+            exit_price = float(request.get("exit_price", 0))
+            size = float(request.get("size", 0))
+            
+            # Calculate P&L
+            if side == "long":
+                pnl = (exit_price - entry_price) * size
+            else:
+                pnl = (entry_price - exit_price) * size
+            
+            pnl_percent = ((exit_price / entry_price) - 1) * 100
+            if side == "short":
+                pnl_percent = -pnl_percent
+            
+            # Log to journal
+            trade = engine.trade_journal.add_trade(
+                symbol=symbol,
+                side=side,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                size=size,
+                pnl=pnl,
+                pnl_percent=pnl_percent,
+                notes="Manually logged from dashboard"
+            )
+            
+            return {
+                "success": True,
+                "pnl": pnl,
+                "pnl_percent": pnl_percent,
+                "trade_id": trade.trade_id
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    @app.get("/api/trades/recent")
+    async def get_recent_trades(limit: int = 20):
+        """Get recent logged trades."""
+        trades = engine.trade_journal.get_recent(limit=limit)
+        return trades
     
     # ==================== Settings Endpoints ====================
     

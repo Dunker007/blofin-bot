@@ -36,11 +36,18 @@ class Balance:
     @classmethod
     def from_api(cls, data: dict) -> "Balance":
         """Create Balance from API response."""
+        # Handle different API response formats
+        # Root level may have totalEquity, details have equity
+        equity = float(data.get("totalEquity", 0) or data.get("equity", 0))
+        available = float(data.get("availableBalance", 0) or data.get("balance", 0) or data.get("available", 0))
+        margin = float(data.get("marginUsed", 0) or data.get("isolatedMargin", 0))
+        upnl = float(data.get("unrealizedPnl", 0) or data.get("isolatedUnrealizedPnl", 0))
+        
         return cls(
-            total_equity=float(data.get("totalEquity", 0)),
-            available_balance=float(data.get("availableBalance", 0)),
-            used_margin=float(data.get("marginUsed", 0)),
-            unrealized_pnl=float(data.get("unrealizedPnl", 0)),
+            total_equity=equity,
+            available_balance=available,
+            used_margin=margin,
+            unrealized_pnl=upnl,
             currency=data.get("currency", "USDT")
         )
     
