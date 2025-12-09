@@ -238,6 +238,14 @@ class TradeJournal:
         """Get all trades from today."""
         return self.get_trades(start_date=date.today(), end_date=date.today())
     
+    def get_recent(self, limit: int = 100) -> List[Dict]:
+        """Get recent trades (alias for get_trades for compatibility)."""
+        trades = self.get_trades(limit=limit)
+        # Add close_time field for performance tracker compatibility
+        for trade in trades:
+            trade["close_time"] = trade.get("exit_time") or trade.get("entry_time")
+        return trades
+    
     def get_performance_stats(
         self,
         symbol: Optional[str] = None,

@@ -864,6 +864,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <button class="tab" onclick="showTab('journal')">📓 Journal</button>
             <button class="tab" onclick="showTab('stats')">📈 Stats</button>
             <button class="tab" onclick="showTab('styles')">🎭 Styles</button>
+            <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
         </div>
         
         <!-- Positions Tab -->
@@ -1096,6 +1097,92 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 </div>
             </div>
         </div>
+        
+        <!-- Settings Tab -->
+        <div id="tab-settings" class="tab-content" style="display:none;">
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🔑 Blofin API Keys</span>
+                        <span id="blofin-status" class="status-badge status-demo">Not Configured</span>
+                    </div>
+                    <div style="display:grid;gap:1rem;margin-top:1rem;">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">API Key</label>
+                            <input type="password" id="settings-blofin-key" class="input-sm" style="width:100%;" placeholder="Your Blofin API key" />
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">API Secret</label>
+                            <input type="password" id="settings-blofin-secret" class="input-sm" style="width:100%;" placeholder="Your Blofin API secret" />
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">Passphrase</label>
+                            <input type="password" id="settings-blofin-pass" class="input-sm" style="width:100%;" placeholder="Your Blofin passphrase" />
+                        </div>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <input type="checkbox" id="settings-blofin-demo" checked />
+                            <label for="settings-blofin-demo" style="font-size:0.875rem;">Demo Mode (paper trading)</label>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveBlofinSettings()">💾 Save Blofin Settings</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🤖 Claude AI Key</span>
+                        <span id="claude-status" class="status-badge status-demo">Not Configured</span>
+                    </div>
+                    <div style="display:grid;gap:1rem;margin-top:1rem;">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">Anthropic API Key</label>
+                            <input type="password" id="settings-claude-key" class="input-sm" style="width:100%;" placeholder="sk-ant-api..." />
+                        </div>
+                        <p style="font-size:0.75rem;color:var(--text-secondary);">
+                            Get your API key from <a href="https://console.anthropic.com/" target="_blank" style="color:var(--accent);">console.anthropic.com</a>
+                        </p>
+                        <button class="btn btn-primary" onclick="saveClaudeSettings()">💾 Save Claude Key</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-2" style="margin-top:1rem;">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📱 Notifications</span>
+                    </div>
+                    <div style="display:grid;gap:1rem;margin-top:1rem;">
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">Discord Webhook URL</label>
+                            <input type="text" id="settings-discord" class="input-sm" style="width:100%;" placeholder="https://discord.com/api/webhooks/..." />
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">Telegram Bot Token</label>
+                            <input type="text" id="settings-telegram-token" class="input-sm" style="width:100%;" placeholder="123456789:ABC..." />
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.25rem;">Telegram Chat ID</label>
+                            <input type="text" id="settings-telegram-chat" class="input-sm" style="width:100%;" placeholder="Your chat ID" />
+                        </div>
+                        <button class="btn btn-primary" onclick="saveNotificationSettings()">💾 Save Notification Settings</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">ℹ️ System Info</span>
+                    </div>
+                    <table style="margin-top:1rem;">
+                        <tbody id="system-info">
+                            <tr><td colspan="2" style="text-align:center;color:var(--text-secondary)">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top:1rem;">
+                        <button class="btn btn-success btn-sm" onclick="testConnection()">🔌 Test Connection</button>
+                        <button class="btn btn-sm" onclick="loadSettings()" style="margin-left:0.5rem;">🔄 Reload</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -1198,6 +1285,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (tabName === 'actions') loadActions();
             if (tabName === 'journal') loadJournal();
             if (tabName === 'stats') loadStats();
+            if (tabName === 'settings') loadSettings();
         }
         
         // ==================== Watchlist ====================
@@ -1555,6 +1643,139 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 `;
             } catch (e) {
                 console.error('Failed to load stats:', e);
+            }
+        }
+        
+        // ==================== Settings ====================
+        
+        async function loadSettings() {
+            try {
+                const settings = await fetchApi('/settings');
+                
+                // Update status badges
+                if (settings.blofin_configured) {
+                    document.getElementById('blofin-status').textContent = settings.blofin_demo ? 'Demo Mode' : 'Live';
+                    document.getElementById('blofin-status').className = 'status-badge ' + (settings.blofin_demo ? 'status-demo' : 'status-active');
+                } else {
+                    document.getElementById('blofin-status').textContent = 'Not Configured';
+                    document.getElementById('blofin-status').className = 'status-badge status-demo';
+                }
+                
+                if (settings.claude_configured) {
+                    document.getElementById('claude-status').textContent = 'Configured';
+                    document.getElementById('claude-status').className = 'status-badge status-active';
+                } else {
+                    document.getElementById('claude-status').textContent = 'Not Configured';
+                    document.getElementById('claude-status').className = 'status-badge status-demo';
+                }
+                
+                // Update demo checkbox
+                document.getElementById('settings-blofin-demo').checked = settings.blofin_demo;
+                
+                // Update system info
+                document.getElementById('system-info').innerHTML = `
+                    <tr><td>Version</td><td>${settings.version || '0.1.0'}</td></tr>
+                    <tr><td>Blofin API</td><td>${settings.blofin_configured ? '✅ Connected' : '❌ Not Set'}</td></tr>
+                    <tr><td>Claude AI</td><td>${settings.claude_configured ? '✅ Connected' : '❌ Not Set'}</td></tr>
+                    <tr><td>Mode</td><td>${settings.blofin_demo ? '📝 Demo' : '🔴 Live'}</td></tr>
+                    <tr><td>Autonomy</td><td>${settings.autonomy || 'copilot'}</td></tr>
+                `;
+            } catch (e) {
+                console.error('Failed to load settings:', e);
+            }
+        }
+        
+        async function saveBlofinSettings() {
+            const apiKey = document.getElementById('settings-blofin-key').value;
+            const apiSecret = document.getElementById('settings-blofin-secret').value;
+            const passphrase = document.getElementById('settings-blofin-pass').value;
+            const demo = document.getElementById('settings-blofin-demo').checked;
+            
+            if (!apiKey || !apiSecret || !passphrase) {
+                alert('Please fill in all Blofin fields');
+                return;
+            }
+            
+            try {
+                const result = await postApi('/settings/blofin', {
+                    api_key: apiKey,
+                    api_secret: apiSecret,
+                    passphrase: passphrase,
+                    demo: demo
+                });
+                
+                if (result.success) {
+                    alert('✅ Blofin settings saved! Restart the server to apply.');
+                    document.getElementById('settings-blofin-key').value = '';
+                    document.getElementById('settings-blofin-secret').value = '';
+                    document.getElementById('settings-blofin-pass').value = '';
+                    loadSettings();
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('❌ Error saving settings');
+            }
+        }
+        
+        async function saveClaudeSettings() {
+            const apiKey = document.getElementById('settings-claude-key').value;
+            
+            if (!apiKey) {
+                alert('Please enter your Claude API key');
+                return;
+            }
+            
+            try {
+                const result = await postApi('/settings/claude', {
+                    api_key: apiKey
+                });
+                
+                if (result.success) {
+                    alert('✅ Claude API key saved! Restart the server to apply.');
+                    document.getElementById('settings-claude-key').value = '';
+                    loadSettings();
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('❌ Error saving settings');
+            }
+        }
+        
+        async function saveNotificationSettings() {
+            const discord = document.getElementById('settings-discord').value;
+            const telegramToken = document.getElementById('settings-telegram-token').value;
+            const telegramChat = document.getElementById('settings-telegram-chat').value;
+            
+            try {
+                const result = await postApi('/settings/notifications', {
+                    discord_webhook: discord,
+                    telegram_token: telegramToken,
+                    telegram_chat_id: telegramChat
+                });
+                
+                if (result.success) {
+                    alert('✅ Notification settings saved!');
+                } else {
+                    alert('❌ Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('❌ Error saving settings');
+            }
+        }
+        
+        async function testConnection() {
+            try {
+                const result = await postApi('/settings/test');
+                
+                if (result.blofin_ok) {
+                    alert('✅ Blofin connection successful!\\nBalance: $' + (result.balance || 0).toFixed(2));
+                } else {
+                    alert('❌ Blofin connection failed: ' + (result.blofin_error || 'Check your API keys'));
+                }
+            } catch (e) {
+                alert('❌ Connection test failed');
             }
         }
         
@@ -1936,6 +2157,125 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
     async def get_daily_pnl(days: int = 30):
         """Get daily P&L for charting."""
         return perf_tracker.get_daily_pnl(days)
+    
+    # ==================== Settings Endpoints ====================
+    
+    import os
+    from pathlib import Path
+    
+    @app.get("/api/settings")
+    async def get_settings():
+        """Get current settings status."""
+        return {
+            "version": "0.1.0",
+            "blofin_configured": bool(os.getenv("BLOFIN_API_KEY")),
+            "blofin_demo": os.getenv("BLOFIN_DEMO", "true").lower() == "true",
+            "claude_configured": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "discord_configured": bool(os.getenv("DISCORD_WEBHOOK_URL")),
+            "telegram_configured": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
+            "autonomy": config.autonomy,
+        }
+    
+    @app.post("/api/settings/blofin")
+    async def save_blofin_settings(request: dict):
+        """Save Blofin API settings to .env file."""
+        try:
+            env_path = Path(".env")
+            env_content = {}
+            
+            # Read existing .env
+            if env_path.exists():
+                with open(env_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, value = line.split("=", 1)
+                            env_content[key] = value
+            
+            # Update with new values
+            env_content["BLOFIN_API_KEY"] = request.get("api_key", "")
+            env_content["BLOFIN_API_SECRET"] = request.get("api_secret", "")
+            env_content["BLOFIN_PASSPHRASE"] = request.get("passphrase", "")
+            env_content["BLOFIN_DEMO"] = "true" if request.get("demo", True) else "false"
+            
+            # Write back
+            with open(env_path, "w") as f:
+                for key, value in env_content.items():
+                    f.write(f"{key}={value}\n")
+            
+            return {"success": True, "message": "Settings saved. Restart server to apply."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    @app.post("/api/settings/claude")
+    async def save_claude_settings(request: dict):
+        """Save Claude API key to .env file."""
+        try:
+            env_path = Path(".env")
+            env_content = {}
+            
+            if env_path.exists():
+                with open(env_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, value = line.split("=", 1)
+                            env_content[key] = value
+            
+            env_content["ANTHROPIC_API_KEY"] = request.get("api_key", "")
+            
+            with open(env_path, "w") as f:
+                for key, value in env_content.items():
+                    f.write(f"{key}={value}\n")
+            
+            return {"success": True, "message": "Claude API key saved. Restart server to apply."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    @app.post("/api/settings/notifications")
+    async def save_notification_settings(request: dict):
+        """Save notification settings to .env file."""
+        try:
+            env_path = Path(".env")
+            env_content = {}
+            
+            if env_path.exists():
+                with open(env_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, value = line.split("=", 1)
+                            env_content[key] = value
+            
+            if request.get("discord_webhook"):
+                env_content["DISCORD_WEBHOOK_URL"] = request.get("discord_webhook")
+            if request.get("telegram_token"):
+                env_content["TELEGRAM_BOT_TOKEN"] = request.get("telegram_token")
+            if request.get("telegram_chat_id"):
+                env_content["TELEGRAM_CHAT_ID"] = request.get("telegram_chat_id")
+            
+            with open(env_path, "w") as f:
+                for key, value in env_content.items():
+                    f.write(f"{key}={value}\n")
+            
+            return {"success": True, "message": "Notification settings saved."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    @app.post("/api/settings/test")
+    async def test_blofin_connection():
+        """Test Blofin API connection."""
+        try:
+            balance = client.get_balance()
+            return {
+                "blofin_ok": True,
+                "balance": float(balance.get("totalEquity", 0)),
+            }
+        except Exception as e:
+            return {
+                "blofin_ok": False,
+                "blofin_error": str(e),
+            }
     
     # ==================== Dashboard ====================
     
