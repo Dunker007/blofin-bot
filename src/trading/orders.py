@@ -273,7 +273,9 @@ class OrderManager:
         try:
             return self.client.get_open_orders(inst_id=symbol)
         except Exception as e:
-            logger.error(f"Failed to get orders: {e}")
+            # Don't spam logs for expected auth errors
+            if "401" not in str(e):
+                logger.error(f"Failed to get orders: {e}")
             return []
     
     def get_order_status(self, order_id: str) -> Optional[Dict]:
