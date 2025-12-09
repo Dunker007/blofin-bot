@@ -39,6 +39,31 @@ class BlofinClient:
         self.session.headers.update({
             "Content-Type": "application/json"
         })
+        
+        # Time offset to sync with server (in milliseconds)
+        self._time_offset = 0
+        self._sync_time()
+    
+    def _sync_time(self) -> None:
+        """Sync local time with Blofin server to avoid timestamp errors."""
+        try:
+            from email.utils import parsedate_to_datetime
+            
+            # Get server time from response header
+            response = self.session.head(f"{self.PUBLIC_URL}/api/v1/market/tickers", timeout=5)
+            server_date = response.headers.get("Date", "")
+            
+            if server_date:
+                server_dt = parsedate_to_datetime(server_date)
+                server_ts = int(server_dt.timestamp() * 1000)
+                local_ts = int(time.time() * 1000)
+                self._time_offset = server_ts - local_ts
+                
+                if abs(self._time_offset) > 1000:
+                    logger.warning(f"Clock offset detected: {self._time_offset}ms, adjusting timestamps")
+        except Exception as e:
+            logger.debug(f"Time sync failed: {e}")
+            self._time_offset = 0
     
     # ==================== Authentication ====================
     
@@ -54,7 +79,8 @@ class BlofinClient:
         Returns:
             Dictionary of authentication headers
         """
-        timestamp = str(int(time.time() * 1000))
+        # Use server-synced time
+        timestamp = str(int(time.time() * 1000) + self._time_offset)
         nonce = timestamp  # Using timestamp as nonce
         
         # Create signature string: path + method + timestamp + nonce + body
