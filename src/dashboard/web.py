@@ -1384,6 +1384,101 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             </div>
         </div>
         
+        <!-- Styles Tab -->
+        <div id="tab-styles" class="tab-content" style="display:none;">
+            <div class="grid grid-3">
+                <!-- Current Style -->
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <span class="card-title">🎭 Trading Style</span>
+                        <span id="current-style-badge" class="status-badge status-active">Loading...</span>
+                    </div>
+                    <p style="color:var(--text-secondary);margin-top:0.5rem;" id="style-description">
+                        Your trading style affects AI recommendations, risk calculations, and suggested settings.
+                    </p>
+                    
+                    <!-- Style Cards -->
+                    <div class="grid grid-3" style="margin-top:1rem;" id="style-cards">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                
+                <!-- Current Style Parameters -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📊 Current Parameters</span>
+                    </div>
+                    <div id="style-params" style="margin-top:1rem;">
+                        <div style="display:grid;gap:0.5rem;">
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Risk Per Trade:</span>
+                                <strong id="param-risk">--%</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Max Leverage:</span>
+                                <strong id="param-leverage">--x</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Min Confidence:</span>
+                                <strong id="param-confidence">--%</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Min R:R Ratio:</span>
+                                <strong id="param-rr">--</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Max Positions:</span>
+                                <strong id="param-positions">--</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Max Daily Trades:</span>
+                                <strong id="param-trades">--</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Max Daily Loss:</span>
+                                <strong id="param-loss" class="negative">--%</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Timeframe:</span>
+                                <strong id="param-timeframe">--</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Hold Time:</span>
+                                <strong id="param-holdtime">--</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Style Explanation -->
+            <div class="card" style="margin-top:1rem;">
+                <div class="card-header">
+                    <span class="card-title">💡 How Styles Affect Your Trading</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem;">
+                    <div>
+                        <h4 style="color:var(--accent);margin-bottom:0.5rem;">🎯 AI Recommendations</h4>
+                        <p style="font-size:0.85rem;color:var(--text-secondary);">
+                            The AI assistant uses your style to filter trade ideas, set confidence thresholds, and adjust its recommendations.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--green);margin-bottom:0.5rem;">📐 Position Sizing</h4>
+                        <p style="font-size:0.85rem;color:var(--text-secondary);">
+                            Risk per trade and max leverage settings automatically adjust calculated position sizes in the calculator.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--yellow);margin-bottom:0.5rem;">⚠️ Risk Limits</h4>
+                        <p style="font-size:0.85rem;color:var(--text-secondary);">
+                            Daily loss limits and max positions help you stay disciplined and avoid overtrading or excessive drawdown.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Settings Tab -->
         <div id="tab-settings" class="tab-content" style="display:none;">
             <div class="grid grid-2">
@@ -1696,6 +1791,78 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 }
             } catch (e) {
                 console.log('Failed to load funding');
+            }
+        }
+        
+        // Trading Styles
+        let currentStyleName = 'balanced';
+        
+        async function loadStyles() {
+            try {
+                const data = await fetchApi('/styles');
+                const cardsContainer = document.getElementById('style-cards');
+                currentStyleName = data.current || 'balanced';
+                
+                // Build style cards
+                const styles = data.styles || {};
+                let html = '';
+                for (const [key, style] of Object.entries(styles)) {
+                    const isActive = key === currentStyleName;
+                    const borderColor = isActive ? 'var(--accent)' : 'var(--border)';
+                    const bg = isActive ? 'rgba(59,130,246,0.1)' : 'var(--bg-card)';
+                    
+                    html += `
+                        <div onclick="setStyle('${key}')" style="
+                            background:${bg};
+                            border:2px solid ${borderColor};
+                            border-radius:12px;
+                            padding:1rem;
+                            cursor:pointer;
+                            transition:all 0.2s;
+                        " onmouseover="this.style.borderColor='var(--accent)'" 
+                           onmouseout="this.style.borderColor='${isActive ? 'var(--accent)' : 'var(--border)'}'"
+                        >
+                            <div style="font-size:1.5rem;margin-bottom:0.5rem;">${style.emoji}</div>
+                            <div style="font-weight:bold;">${style.name}</div>
+                            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.25rem;">
+                                ${style.risk_per_trade}% risk · ${style.max_leverage}x max
+                            </div>
+                        </div>
+                    `;
+                }
+                cardsContainer.innerHTML = html;
+                
+                // Update current style display
+                const current = styles[currentStyleName];
+                if (current) {
+                    document.getElementById('current-style-badge').textContent = current.emoji + ' ' + current.name;
+                    document.getElementById('style-description').textContent = current.description;
+                    
+                    // Update parameters
+                    document.getElementById('param-risk').textContent = current.risk_per_trade + '%';
+                    document.getElementById('param-leverage').textContent = current.max_leverage + 'x';
+                    document.getElementById('param-confidence').textContent = current.min_confidence + '%';
+                    document.getElementById('param-rr').textContent = current.min_rr_ratio + ':1';
+                    document.getElementById('param-positions').textContent = current.max_positions;
+                    document.getElementById('param-trades').textContent = current.max_daily_trades;
+                    document.getElementById('param-loss').textContent = current.max_daily_loss + '%';
+                    document.getElementById('param-timeframe').textContent = current.timeframe;
+                    document.getElementById('param-holdtime').textContent = current.hold_time;
+                }
+            } catch (e) {
+                console.log('Failed to load styles');
+            }
+        }
+        
+        async function setStyle(styleName) {
+            try {
+                const result = await postApi('/styles/' + styleName);
+                if (result.success) {
+                    currentStyleName = styleName;
+                    loadStyles();
+                }
+            } catch (e) {
+                console.log('Failed to set style');
             }
         }
         
@@ -2383,6 +2550,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             updateTicker();
             loadFills();
             loadFunding();
+            loadStyles();
             setInterval(refreshData, 5000);  // Every 5 seconds
             setInterval(updateTicker, 10000); // Every 10 seconds
             setInterval(loadFunding, 60000);  // Every minute
