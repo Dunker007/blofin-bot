@@ -434,10 +434,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             min-height: 100vh;
         }
         
+        .main-layout {
+            display: flex;
+            min-height: calc(100vh - 120px);
+        }
+        
+        .main-content {
+            flex: 2;
+            padding: 1rem 1.5rem;
+            overflow-y: auto;
+        }
+        
+        .sidebar-chat {
+            flex: 1;
+            max-width: 400px;
+            min-width: 300px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 1rem;
+            max-width: 100%;
+            padding: 0;
         }
         
         header {
@@ -466,6 +486,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         .status-demo { background: rgba(234,179,8,0.2); color: var(--yellow); }
         .status-live { background: rgba(239,68,68,0.2); color: var(--red); }
+        .status-active { background: rgba(34,197,94,0.2); color: var(--green); }
         
         .grid {
             display: grid;
@@ -570,15 +591,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         /* Chat Window Styles */
         .chat-container {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: var(--bg-secondary);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            max-height: 350px;
+            flex: 1;
             display: flex;
             flex-direction: column;
+            background: var(--bg-secondary);
         }
         
         .chat-header {
@@ -613,7 +629,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            max-height: 200px;
         }
         
         .chat-message {
@@ -860,13 +875,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <header>
         <div class="logo">🤖 Blofin Helper</div>
         <div style="display:flex;align-items:center;gap:1rem;">
+            <button class="btn btn-danger btn-sm" onclick="killSwitch()" style="padding:0.4rem 0.8rem;">🛑 Kill</button>
+            <button class="btn btn-primary btn-sm" onclick="togglePause()" id="pause-btn" style="padding:0.4rem 0.8rem;">⏸️ Pause</button>
+            <button class="btn btn-sm" onclick="refreshData()" style="padding:0.4rem 0.8rem;">🔄</button>
             <span id="last-update" style="font-size:0.75rem;color:var(--text-secondary);"></span>
             <span class="status-badge" id="mode-badge">LIVE</span>
         </div>
     </header>
     
-    <div class="container">
-        <div class="grid grid-4">
+    <div class="main-layout">
+        <div class="main-content">
+            <div class="container">
+                <div class="grid grid-4">
             <div class="card">
                 <div class="card-header">
                     <span class="card-title">Equity</span>
@@ -891,12 +911,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 </div>
                 <div class="metric" id="approvals">0</div>
             </div>
-        </div>
-        
-        <div class="controls">
-            <button class="btn btn-danger" onclick="killSwitch()">🛑 Kill Switch</button>
-            <button class="btn btn-primary" onclick="togglePause()" id="pause-btn">⏸️ Pause</button>
-            <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
         </div>
         
         <!-- Tab Navigation -->
@@ -2232,24 +2246,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             setInterval(refreshData, 5000);  // Every 5 seconds
             setInterval(updateTicker, 10000); // Every 10 seconds
         });
-    </script>
-    
-    <!-- Chat Window -->
-    <div id="chat-container" class="chat-container">
-        <div class="chat-header" onclick="toggleChat()">
-            <h3>💬 AI Trading Assistant</h3>
-            <button class="chat-toggle" id="chat-toggle-btn">▼</button>
+            </script>
         </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="chat-message ai">
-                👋 Hi! I'm your trading assistant. I can see your portfolio, positions, and market data. Ask me anything about your trades!
+        <!-- /main-content -->
+        
+        <!-- Sidebar Chat -->
+        <div class="sidebar-chat">
+            <div id="chat-container" class="chat-container">
+                <div class="chat-header">
+                    <h3>💬 AI Trading Assistant</h3>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-message ai">
+                        👋 Hi! I'm your trading assistant. I can see your portfolio, positions, and market data. Ask me anything about your trades!
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" id="chat-input" placeholder="Ask about markets or trading..." />
+                    <button class="chat-send" id="chat-send-btn" onclick="sendChatMessage()">Send</button>
+                </div>
             </div>
         </div>
-        <div class="chat-input-container">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about your portfolio, markets, or trading strategies..." />
-            <button class="chat-send" id="chat-send-btn" onclick="sendChatMessage()">Send</button>
-        </div>
+        <!-- /sidebar-chat -->
     </div>
+    <!-- /main-layout -->
 </body>
 </html>
 """
