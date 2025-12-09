@@ -3,7 +3,8 @@
 from .base import Strategy, Signal, SignalType
 from .indicators import Indicators
 from .signals import SignalGenerator
-from .backtest import Backtester, BacktestResult
+from .backtest import Backtester, BacktestResult, Backtest, Candle
+from .webhook import WebhookReceiver, SignalProcessor, WebhookSignal
 
 __all__ = [
     "Strategy",
@@ -13,4 +14,10 @@ __all__ = [
     "SignalGenerator",
     "Backtester",
     "BacktestResult",
+    "Backtest",
+    "Candle",
+    "WebhookReceiver",
+    "SignalProcessor",
+    "WebhookSignal",
 ]
+

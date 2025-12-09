@@ -1,0 +1,28 @@
+# Multi-Account Configuration
+# Each account can have different settings and risk limits
+
+accounts:
+  main:
+    # API credentials (use environment variables for security)
+    api_key: ${BLOFIN_API_KEY}
+    api_secret: ${BLOFIN_API_SECRET}
+    passphrase: ${BLOFIN_PASSPHRASE}
+    
+    # Settings
+    demo_mode: true
+    max_leverage: 10
+    max_position_size: 100.0  # Max % of account per position
+    daily_loss_limit: 5.0     # Stop trading after X% daily loss
+    
+  # Example: High-risk account
+  # degen:
+  #   api_key: ${BLOFIN_DEGEN_KEY}
+  #   api_secret: ${BLOFIN_DEGEN_SECRET}
+  #   passphrase: ${BLOFIN_DEGEN_PASS}
+  #   demo_mode: true
+  #   max_leverage: 50
+  #   max_position_size: 100.0
+  #   daily_loss_limit: 20.0
+
+# Default account to use
+default_account: main

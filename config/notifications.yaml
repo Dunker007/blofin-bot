@@ -1,0 +1,38 @@
+# Notification Configuration
+# Set up Discord and Telegram notifications
+
+discord:
+  # Create a webhook in your Discord channel settings
+  webhook_url: ${DISCORD_WEBHOOK_URL}
+  
+  # Which events to send
+  events:
+    trade_open: true
+    trade_close: true
+    price_alert: true
+    ai_decision: true
+    error: true
+    pnl_update: false  # Periodic P&L summaries
+
+telegram:
+  # Create a bot with @BotFather and get your chat ID
+  bot_token: ${TELEGRAM_BOT_TOKEN}
+  chat_id: ${TELEGRAM_CHAT_ID}
+  
+  events:
+    trade_open: true
+    trade_close: true
+    price_alert: true
+    ai_decision: true
+    error: true
+
+# General settings
+settings:
+  # Minimum seconds between notifications (prevent spam)
+  rate_limit: 5
+  
+  # Include detailed info in notifications
+  verbose: true
+  
+  # Time zone for timestamps
+  timezone: "America/Chicago"
