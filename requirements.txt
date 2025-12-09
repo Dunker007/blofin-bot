@@ -15,6 +15,11 @@ pyyaml
 rich
 textual
 
+# Web API
+fastapi
+uvicorn[standard]
+pydantic
+
 # Async (for WebSocket)
 websockets
 asyncio

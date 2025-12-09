@@ -164,6 +164,24 @@ def cmd_decision(args, config: Config, client: BlofinClient):
     print(f"└─ Invalidation: {decision.invalidation}\n")
 
 
+def cmd_serve(args, config: Config, client: BlofinClient):
+    """Start web dashboard server."""
+    try:
+        import uvicorn
+        from .dashboard import create_web_app
+        
+        app = create_web_app(config, client)
+        
+        print(f"\n🌐 Starting web dashboard at http://{args.host}:{args.port}")
+        print("   Press Ctrl+C to stop\n")
+        
+        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+        
+    except ImportError:
+        print("Error: FastAPI/uvicorn not installed.")
+        print("Run: pip install fastapi uvicorn[standard]")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -198,6 +216,11 @@ def main():
     decision_parser = subparsers.add_parser("decision", aliases=["dec"], help="Get AI trade decision")
     decision_parser.add_argument("symbol", default="BTC-USDT", nargs="?", help="Trading symbol")
     
+    # Serve command (web dashboard)
+    serve_parser = subparsers.add_parser("serve", aliases=["s", "web"], help="Start web dashboard")
+    serve_parser.add_argument("--host", "-H", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
+    serve_parser.add_argument("--port", "-p", type=int, default=8000, help="Port to bind (default: 8000)")
+    
     args = parser.parse_args()
     
     # Print banner
@@ -224,6 +247,8 @@ def main():
         cmd_analyze(args, config, client)
     elif args.command in ["decision", "dec"]:
         cmd_decision(args, config, client)
+    elif args.command in ["serve", "s", "web"]:
+        cmd_serve(args, config, client)
     else:
         # Default to dashboard
         args.refresh = 5.0
