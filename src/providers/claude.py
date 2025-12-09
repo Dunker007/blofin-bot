@@ -229,21 +229,36 @@ class ClaudeProvider:
     
     def chat(self, message: str, context: Optional[str] = None) -> str:
         """
-        Chat with the AI about trading.
+        Chat with the AI about trading portfolio.
         
         Args:
             message: User message
-            context: Optional market context
+            context: Portfolio context (positions, balance, etc.)
         
         Returns:
             AI response
         """
+        chat_system = """You are a helpful crypto trading assistant for the Blofin Bot trading system.
+
+You have access to the user's portfolio information which is provided as context.
+Be conversational, helpful, and friendly while providing actionable trading insights.
+
+Your capabilities:
+- Analyze portfolio positions and P&L
+- Discuss market conditions and trends
+- Suggest trade ideas with proper risk management
+- Explain trading concepts
+- Help with strategy decisions
+
+Keep responses concise but informative. Use emojis sparingly for clarity.
+If asked about current prices or positions, refer to the context provided."""
+
         if context:
-            prompt = f"Current market context:\n{context}\n\nUser question: {message}"
+            prompt = f"My current portfolio status:\n{context}\n\nMy question: {message}"
         else:
             prompt = message
         
-        return self._call(prompt)
+        return self._call(prompt, system=chat_system, max_tokens=500)
     
     def explain_position(self, position: Dict, market_data: Dict) -> str:
         """

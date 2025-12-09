@@ -42,6 +42,12 @@ class TPSLRequest(BaseModel):
     take_profit: Optional[float] = None
 
 
+class ChatRequest(BaseModel):
+    """Chat message request."""
+    message: str
+    symbol: Optional[str] = None  # Optional symbol context
+
+
 # ==================== WebSocket Manager ====================
 
 class ConnectionManager:
@@ -261,6 +267,73 @@ def create_api(engine: TradingEngine) -> FastAPI:
         """Get trading statistics."""
         return engine.trade_journal.get_performance_stats()
     
+    # ==================== Chat ====================
+    
+    @app.post("/api/chat")
+    async def chat_with_ai(request: ChatRequest):
+        """
+        Chat with the portfolio-aware AI assistant.
+        AI has context of positions, market data, and decisions.
+        """
+        try:
+            # Build context from current state
+            context_parts = []
+            
+            # Add position context
+            try:
+                positions = engine.positions.get_position_summary()
+                if positions.get("positions"):
+                    pos_text = "Current Positions:\\n"
+                    for p in positions["positions"]:
+                        pos_text += f"- {p['symbol']}: {p['side'].upper()} {p['size']} (P&L: ${p.get('pnl', 0):+.2f})\\n"
+                    context_parts.append(pos_text)
+                else:
+                    context_parts.append("Current Positions: None")
+            except:
+                context_parts.append("Current Positions: Unable to fetch")
+            
+            # Add market context for specific symbol
+            if request.symbol:
+                try:
+                    ticker = engine.market.get_ticker(request.symbol)
+                    context_parts.append(f"\\n{request.symbol} Price: ${ticker.last:,.2f} ({ticker.change_24h:+.2f}% 24h)")
+                except:
+                    pass
+            
+            # Add pending approvals
+            pending = engine.get_pending_approvals()
+            if pending:
+                context_parts.append(f"\\nPending Approvals: {len(pending)} trades awaiting decision")
+            
+            # Add session stats
+            try:
+                stats = engine.limits.get_stats()
+                context_parts.append(f"\\nToday: {stats['trades_today']} trades, P&L: ${stats['daily_pnl']:+.2f}")
+            except:
+                pass
+            
+            # Combine context
+            full_context = "\\n".join(context_parts)
+            
+            # Get AI response
+            if engine.brain and engine.brain.provider.client:
+                response = engine.brain.chat(request.message, full_context)
+            else:
+                response = "AI not configured. Please set ANTHROPIC_API_KEY in your .env file to enable chat."
+            
+            return {
+                "success": True,
+                "response": response,
+                "context": full_context
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "response": f"Error: {str(e)}",
+                "context": ""
+            }
+    
     # ==================== WebSocket ====================
     
     @app.websocket("/ws")
@@ -435,6 +508,138 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         @media (max-width: 768px) {
             .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
         }
+        
+        /* Chat Window Styles */
+        .chat-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            max-height: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
+        }
+        
+        .chat-header h3 {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .chat-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.25rem;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 200px;
+        }
+        
+        .chat-message {
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        
+        .chat-message.user {
+            background: var(--accent);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .chat-message.ai {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .chat-message.loading {
+            opacity: 0.7;
+        }
+        
+        .chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .chat-input {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .chat-input::placeholder {
+            color: var(--text-secondary);
+        }
+        
+        .chat-send {
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            padding: 0 1.25rem;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .chat-send:hover {
+            opacity: 0.9;
+        }
+        
+        .chat-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Add padding to container for chat */
+        .container {
+            padding-bottom: 380px;
+        }
+        
+        .chat-collapsed .chat-messages,
+        .chat-collapsed .chat-input-container {
+            display: none;
+        }
+        
+        .chat-collapsed {
+            max-height: 50px;
+        }
     </style>
 </head>
 <body>
@@ -586,7 +791,93 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         // Auto-refresh every 5 seconds
         setInterval(refreshData, 5000);
+        
+        // ==================== Chat Functions ====================
+        
+        let chatCollapsed = false;
+        
+        function toggleChat() {
+            const container = document.getElementById('chat-container');
+            chatCollapsed = !chatCollapsed;
+            container.classList.toggle('chat-collapsed', chatCollapsed);
+            document.getElementById('chat-toggle-btn').textContent = chatCollapsed ? '▲' : '▼';
+        }
+        
+        function addMessage(text, isUser) {
+            const messages = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-message ${isUser ? 'user' : 'ai'}`;
+            div.textContent = text;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+            return div;
+        }
+        
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage(message, true);
+            input.value = '';
+            
+            // Show loading
+            const loadingDiv = addMessage('Thinking...', false);
+            loadingDiv.classList.add('loading');
+            
+            // Disable send button
+            const sendBtn = document.getElementById('chat-send-btn');
+            sendBtn.disabled = true;
+            
+            try {
+                const response = await postApi('/chat', { message });
+                
+                // Remove loading
+                loadingDiv.remove();
+                
+                // Add AI response
+                if (response.success) {
+                    addMessage(response.response, false);
+                } else {
+                    addMessage(response.response || 'Error getting response', false);
+                }
+            } catch (e) {
+                loadingDiv.remove();
+                addMessage('Error: ' + e.message, false);
+            }
+            
+            sendBtn.disabled = false;
+        }
+        
+        // Handle Enter key in chat input
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('chat-input');
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+        });
     </script>
+    
+    <!-- Chat Window -->
+    <div id="chat-container" class="chat-container">
+        <div class="chat-header" onclick="toggleChat()">
+            <h3>💬 AI Trading Assistant</h3>
+            <button class="chat-toggle" id="chat-toggle-btn">▼</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-message ai">
+                👋 Hi! I'm your trading assistant. I can see your portfolio, positions, and market data. Ask me anything about your trades!
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about your portfolio, markets, or trading strategies..." />
+            <button class="chat-send" id="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
 </body>
 </html>
 """

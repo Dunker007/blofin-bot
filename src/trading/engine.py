@@ -371,14 +371,26 @@ class TradingEngine:
     
     def get_status(self) -> Dict:
         """Get trading engine status."""
+        # Get positions with error handling
+        try:
+            positions = self.positions.get_position_summary()
+        except Exception:
+            positions = {"count": 0, "positions": [], "error": "Auth required"}
+        
+        # Get open orders with error handling
+        try:
+            open_orders = len(self.orders.get_open_orders())
+        except Exception:
+            open_orders = 0
+        
         return {
             "autonomy_level": self.config.autonomy.level,
             "is_paused": self.is_paused,
             "can_trade": self.override.can_trade() and self.limits.can_trade(),
             "pending_approvals": self.approval_queue.pending_count,
             "session_limits": self.limits.get_stats(),
-            "positions": self.positions.get_position_summary(),
-            "open_orders": len(self.orders.get_open_orders()),
+            "positions": positions,
+            "open_orders": open_orders,
         }
     
     def get_pending_approvals(self) -> list:

@@ -193,22 +193,18 @@ class AIBrain:
         
         return decision
     
-    def chat(self, message: str, symbol: Optional[str] = None) -> str:
+    def chat(self, message: str, portfolio_context: Optional[str] = None) -> str:
         """
         Chat with the AI about trading.
         
         Args:
             message: User message
-            symbol: Optional symbol for context
+            portfolio_context: Pre-built portfolio context string (positions, etc.)
         
         Returns:
             AI response
         """
-        context = None
-        if symbol:
-            context = json.dumps(self.analyzer.get_context_for_ai(symbol), indent=2)
-        
-        return self.provider.chat(message, context)
+        return self.provider.chat(message, portfolio_context)
     
     def explain_position(self, symbol: str) -> str:
         """
