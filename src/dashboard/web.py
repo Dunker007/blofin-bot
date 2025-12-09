@@ -916,6 +916,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <!-- Tab Navigation -->
         <div class="tabs" style="margin-top: 1rem;">
             <button class="tab active" onclick="showTab('positions')">📊 Positions</button>
+            <button class="tab" onclick="showTab('fills')">💹 Fills</button>
             <button class="tab" onclick="showTab('watchlist')">⭐ Watchlist</button>
             <button class="tab" onclick="showTab('scanner')">🔍 Scanner</button>
             <button class="tab" onclick="showTab('planner')">📝 Planner</button>
@@ -1049,6 +1050,71 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     </div>
                     <div style="display:flex;align-items:flex-end;">
                         <button class="btn btn-success btn-sm" onclick="logTrade()" style="width:100%;">Log Trade</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fills Tab (Trade History) -->
+        <div id="tab-fills" class="tab-content" style="display:none;">
+            <div class="grid grid-3">
+                <!-- Trade Fills -->
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <span class="card-title">💹 Recent Trade Fills</span>
+                        <button class="btn btn-sm" onclick="loadFills()">🔄 Refresh</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Price</th>
+                                <th>Size</th>
+                                <th>P&L</th>
+                                <th>Fee</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fills-table">
+                            <tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Leverage & Funding -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚙️ Leverage Control</span>
+                    </div>
+                    <div style="display:grid;gap:0.75rem;margin-top:1rem;">
+                        <div>
+                            <label style="font-size:0.7rem;color:var(--text-secondary);">Symbol</label>
+                            <select id="leverage-symbol" class="input-sm" style="width:100%;">
+                                <option value="BTC-USDT">BTC-USDT</option>
+                                <option value="ETH-USDT">ETH-USDT</option>
+                                <option value="SOL-USDT">SOL-USDT</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;color:var(--text-secondary);">Leverage</label>
+                            <input type="range" id="leverage-slider" min="1" max="50" value="3" style="width:100%;" oninput="document.getElementById('leverage-value').textContent = this.value + 'x'" />
+                            <div style="text-align:center;font-size:1.5rem;font-weight:bold;" id="leverage-value">3x</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="setLeverage()">Set Leverage</button>
+                    </div>
+                    
+                    <div style="margin-top:1.5rem;">
+                        <div class="card-header" style="padding:0;">
+                            <span class="card-title">📊 BTC Funding Rate</span>
+                        </div>
+                        <div style="margin-top:0.75rem;">
+                            <div style="display:flex;justify-content:space-between;">
+                                <span style="color:var(--text-secondary);">Current Rate:</span>
+                                <span id="funding-current" style="font-weight:bold;">--</span>
+                            </div>
+                            <div id="funding-history" style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-secondary);">Loading...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1558,6 +1624,78 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 }
             } catch (e) {
                 alert('❌ Error executing trade');
+            }
+        }
+        
+        // Trade Fills
+        async function loadFills() {
+            try {
+                const fills = await fetchApi('/fills?limit=20');
+                const tbody = document.getElementById('fills-table');
+                
+                if (fills.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">No recent fills</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = fills.map(f => {
+                    const time = new Date(f.time).toLocaleString();
+                    const pnlClass = f.pnl >= 0 ? 'positive' : 'negative';
+                    return `
+                        <tr>
+                            <td style="font-size:0.75rem;">${time}</td>
+                            <td><strong>${f.symbol}</strong></td>
+                            <td class="${f.side === 'buy' ? 'positive' : 'negative'}">${f.side.toUpperCase()}</td>
+                            <td>$${f.price.toLocaleString()}</td>
+                            <td>${f.size}</td>
+                            <td class="${pnlClass}">$${f.pnl.toFixed(2)}</td>
+                            <td style="color:var(--text-secondary);">$${f.fee.toFixed(4)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.log('Failed to load fills');
+            }
+        }
+        
+        // Set Leverage
+        async function setLeverage() {
+            const symbol = document.getElementById('leverage-symbol').value;
+            const leverage = document.getElementById('leverage-slider').value;
+            
+            if (!confirm(`Set ${symbol} leverage to ${leverage}x?`)) {
+                return;
+            }
+            
+            try {
+                const result = await postApi('/leverage', { symbol, leverage: parseInt(leverage) });
+                if (result.success) {
+                    alert(`✅ Leverage set to ${leverage}x for ${symbol}`);
+                } else {
+                    alert('❌ Failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('❌ Error setting leverage');
+            }
+        }
+        
+        // Funding Rate
+        async function loadFunding() {
+            try {
+                const data = await fetchApi('/funding/BTC-USDT');
+                const rateEl = document.getElementById('funding-current');
+                const historyEl = document.getElementById('funding-history');
+                
+                const rate = data.current;
+                rateEl.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(4) + '%';
+                rateEl.className = rate >= 0 ? 'positive' : 'negative';
+                
+                if (data.history && data.history.length > 0) {
+                    const last3 = data.history.slice(0, 3).map(h => (h.rate >= 0 ? '+' : '') + h.rate.toFixed(4) + '%');
+                    historyEl.textContent = 'Last 3: ' + last3.join(', ');
+                }
+            } catch (e) {
+                console.log('Failed to load funding');
             }
         }
         
@@ -2243,8 +2381,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             // Start auto-refresh
             refreshData();
             updateTicker();
+            loadFills();
+            loadFunding();
             setInterval(refreshData, 5000);  // Every 5 seconds
             setInterval(updateTicker, 10000); // Every 10 seconds
+            setInterval(loadFunding, 60000);  // Every minute
         });
             </script>
         </div>
@@ -2455,6 +2596,59 @@ def create_full_app(config: Config, client: BlofinClient) -> FastAPI:
             take_profit=request.take_profit,
             side=request.side,
         )
+    
+    # ==================== Trade History & Leverage ====================
+    
+    @app.get("/api/fills")
+    async def get_trade_fills(symbol: Optional[str] = None, limit: int = 20):
+        """Get filled trade history from Blofin."""
+        try:
+            fills = engine.client.get_trade_history(inst_id=symbol, limit=limit)
+            return [
+                {
+                    "symbol": f.get("instId"),
+                    "side": f.get("side"),
+                    "price": float(f.get("fillPrice", 0)),
+                    "size": float(f.get("fillSize", 0)),
+                    "pnl": float(f.get("fillPnl", 0)),
+                    "fee": float(f.get("fee", 0)),
+                    "time": int(f.get("ts", 0)),
+                }
+                for f in fills
+            ]
+        except Exception as e:
+            return []
+    
+    @app.post("/api/leverage")
+    async def set_leverage(request: dict):
+        """Set leverage for a symbol."""
+        try:
+            symbol = request.get("symbol", "BTC-USDT")
+            leverage = int(request.get("leverage", 3))
+            result = engine.client.set_leverage(symbol, leverage)
+            return {"success": True, "result": result}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    @app.get("/api/funding/{symbol}")
+    async def get_funding_rate(symbol: str):
+        """Get current and historical funding rate."""
+        try:
+            current = engine.client.get_funding_rate(symbol)
+            history = engine.client.get_funding_rate_history(symbol, limit=24)
+            return {
+                "current": float(current.get("fundingRate", 0)) * 100,
+                "next_time": current.get("fundingTime"),
+                "history": [
+                    {
+                        "rate": float(h.get("fundingRate", 0)) * 100,
+                        "time": int(h.get("fundingTime", 0)),
+                    }
+                    for h in history[:24]
+                ]
+            }
+        except Exception as e:
+            return {"current": 0, "history": [], "error": str(e)}
     
     # ==================== Session Journal Endpoints ====================
     

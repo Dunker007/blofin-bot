@@ -380,6 +380,87 @@ class BlofinClient:
         result = self.post("/api/v1/trade/close-position", data=data)
         return result.get("data", {})
     
+    def set_leverage(self, inst_id: str, leverage: int, margin_mode: str = "cross", position_side: str = "net") -> Dict:
+        """
+        Set leverage for an instrument.
+        
+        Args:
+            inst_id: Instrument ID (e.g., "BTC-USDT")
+            leverage: Leverage value (1-125)
+            margin_mode: "cross" or "isolated"
+            position_side: "long", "short", or "net"
+        """
+        logger.info(f"Setting leverage for {inst_id}: {leverage}x")
+        data = {
+            "instId": inst_id,
+            "leverage": str(leverage),
+            "marginMode": margin_mode,
+            "positionSide": position_side,
+        }
+        result = self.post("/api/v1/account/set-leverage", data=data)
+        return result.get("data", {})
+    
+    def place_tpsl_order(
+        self,
+        inst_id: str,
+        side: str,
+        size: str,
+        tp_trigger_price: Optional[str] = None,
+        tp_order_price: Optional[str] = None,
+        sl_trigger_price: Optional[str] = None,
+        sl_order_price: Optional[str] = None,
+        margin_mode: str = "cross",
+        position_side: str = "net",
+    ) -> Dict:
+        """
+        Place a TP/SL order.
+        
+        Args:
+            inst_id: Instrument ID
+            side: "buy" or "sell"
+            size: Order size
+            tp_trigger_price: Take profit trigger price
+            tp_order_price: Take profit order price (empty for market)
+            sl_trigger_price: Stop loss trigger price
+            sl_order_price: Stop loss order price (empty for market)
+        """
+        logger.info(f"Placing TPSL order for {inst_id}: TP={tp_trigger_price}, SL={sl_trigger_price}")
+        data = {
+            "instId": inst_id,
+            "marginMode": margin_mode,
+            "positionSide": position_side,
+            "side": side,
+            "size": size,
+            "reduceOnly": "true",
+        }
+        if tp_trigger_price:
+            data["tpTriggerPrice"] = tp_trigger_price
+            data["tpOrderPrice"] = tp_order_price or ""
+        if sl_trigger_price:
+            data["slTriggerPrice"] = sl_trigger_price
+            data["slOrderPrice"] = sl_order_price or ""
+        
+        result = self.post("/api/v1/trade/order-tpsl", data=data)
+        return result.get("data", {})
+    
+    def get_trade_history(self, inst_id: Optional[str] = None, limit: int = 50) -> list:
+        """
+        Get filled trade history.
+        
+        Returns list of fills with price, size, pnl, fee.
+        """
+        params = {"limit": str(limit)}
+        if inst_id:
+            params["instId"] = inst_id
+        result = self.get("/api/v1/trade/fills-history", params=params, auth=True)
+        return result.get("data", [])
+    
+    def get_funding_rate_history(self, inst_id: str, limit: int = 50) -> list:
+        """Get funding rate history for an instrument."""
+        params = {"instId": inst_id, "limit": str(limit)}
+        result = self.get("/api/v1/market/funding-rate-history", params=params)
+        return result.get("data", [])
+    
     # ==================== Utility Methods ====================
     
     def test_connection(self) -> bool:
@@ -402,3 +483,4 @@ class BlofinClient:
         except Exception as e:
             logger.error(f"Auth test error: {e}")
             return False
+
